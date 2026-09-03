@@ -1,25 +1,12 @@
 services:
   rust: 
     build: 
-      context: ./rust_backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rust_backend/Dockerfile
     env_file:
       - .env
     ports:
       - "8001:80"
-    depends_on:
-      - db
-      - python
-    volumes:
-      - user_data:/app/user_data
-  python:
-    build:
-      context: ./python_backend
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    ports:
-      - "8000:80"
     depends_on:
       - db
     volumes:
@@ -35,5 +22,6 @@ services:
 
 volumes:
   postgres_data:
+  user_data: 
 
 

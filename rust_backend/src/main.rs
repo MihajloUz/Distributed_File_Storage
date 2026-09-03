@@ -33,7 +33,7 @@ async fn upload_on_server(
 }
 
 async fn login_page() -> Html<String>{
-    let page = tokio::fs::read_to_string("../login.html").async?; 
+    let page = tokio::fs::read_to_string("../login.html").await?; 
 
     
     Html(page)
@@ -41,7 +41,7 @@ async fn login_page() -> Html<String>{
 
 fn create_app(state: AppState) -> Router{
     Router::new()
-        .route("/", post(login_page))
+        .route("/", get(login_page))
         .route("/upload_file/{user_id}/{relative_path}", post(upload_on_server))
         .with_state(state)
 }
