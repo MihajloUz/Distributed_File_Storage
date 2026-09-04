@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Authentication</title>
+    <title>Login</title>
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
         form { display: flex; flex-direction: column; width: 300px; gap: 10px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
@@ -55,9 +55,10 @@
                 }
             } catch (error) {
                 messageDiv.style.color = 'red';
-                messageDiv.textContent = 'Нет связи с сервером';
+                messageDiv.textContent = 'No server connection';
             }
         });
+        
     </script>
 
 </body>
