@@ -1,6 +1,9 @@
+use std::os::unix::fs::OpenOptionsExt;
+
 use axum::{
     Router,
     body::Body,
+    body::BodyDataStream,
     extract::Path,
     http::{
         HeaderMap,
@@ -18,7 +21,10 @@ use axum::{
 };
 use rust_backend::*;
 use tokio::fs;
-
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
+use axum::body::to_bytes;
+use futures_util::StreamExt;  
 async fn upload_on_server(
     method: Method,
     headers: HeaderMap,
@@ -26,22 +32,31 @@ async fn upload_on_server(
     body: Body,
 
 ) -> Result<impl IntoResponse, ServerError>{
-     
+    let mut stream = body.into_data_stream();   
 
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(format!("/{}/{}", user_id, relative_path))
+        .await
+        .map_err(ServerError::Io)?; //change later to
+    
+    while let Some(chunk_result) = stream.next().await{
+        match chunk_result{
+            Ok(chunk) => {
+                file.write_all(&chunk).await.map_err(ServerError::Io)?;                   
+            },
+            Err(e) => {
+                return Err(ServerError::Axum(e));
+            },
+        }
+    }
 
     Ok((StatusCode::OK, "Data uploaded successfully").into_response())
 }
 
-async fn login_page() -> Html<String>{
-    let page = tokio::fs::read_to_string("../login.html").await?; 
-
-    
-    Html(page)
-}
-
 fn create_app(state: AppState) -> Router{
     Router::new()
-        .route("/", get(login_page))
         .route("/upload_file/{user_id}/{relative_path}", post(upload_on_server))
         .with_state(state)
 }
@@ -65,13 +80,14 @@ async fn main() -> Result<(), ServerError>{
     });
 
     let pool = create_pool()?;
+    setting_up_db(&pool);
 
     let state = AppState{
         db: pool, 
     };
 
     let app = create_app(state);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
 
     axum::serve(listener, app).await?;
     Ok(())

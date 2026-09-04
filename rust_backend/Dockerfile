@@ -6,7 +6,7 @@ COPY login.html ./login.html
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-COPY --from=builder /app/target/release/data_parser /usr/local/bin/data_parser
+COPY --from=builder /app/target/release/rust_backend /usr/local/bin/rust_backend
 COPY --from=builder /app/login.html /app/login.html
 WORKDIR /app
-CMD ["data_parser"]
+CMD ["rust_backend"]

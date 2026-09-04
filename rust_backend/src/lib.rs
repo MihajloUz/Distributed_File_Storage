@@ -15,6 +15,8 @@ pub enum ServerError{
     Env(env::VarError),
     SerdeJson(serde_json::Error),
     Axum(axum::Error),
+
+    GeneralIo,
 }
 
 
@@ -42,7 +44,9 @@ impl fmt::Display for ServerError{
             ServerError::Axum(e) => {
                 write!(f, "{}", e)
             }
-
+            ServerError::GeneralIo => {
+                write!(f, "Error writing/reading a file")
+            }
         }
     }
 }
@@ -56,6 +60,7 @@ impl IntoResponse for ServerError{
             ServerError::Env(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::SerdeJson(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::Axum(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::GeneralIo => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status, self.to_string()).into_response()
@@ -125,4 +130,32 @@ pub fn create_pool() -> Result<deadpool_postgres::Pool, ServerError>{
 pub struct AppState{
     pub db: deadpool_postgres::Pool,
 }
+
+
+
+pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpool_postgres::PoolError>{
+    let client = pool.get().await?;
+
+    client.batch_execute(
+        "
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+        CREATE TABLE IF NOT EXISTS users (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL
+        );
+        
+        CREATE TABLE IF NOT EXISTS user_files(
+            user_id REFERENCES users(id),
+            path TEXT NOT NULL UNIQUE,
+            file_name TEXT NOT NULL UNIQUE,
+        );
+        "
+    ).await?;
+
+    Ok(())
+}
+
+
 
