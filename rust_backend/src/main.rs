@@ -63,6 +63,28 @@ fn create_app(state: AppState) -> Router{
 
 #[tokio::main]
 async fn main() -> Result<(), ServerError>{
+
+    dotenvy::dotenv().ok();
+    let (client, connection) = tokio_postgres::connect(
+        format!("host={} user={} password={} dbname={}",
+                std::env::var("POSTGRES_HOST")?,
+                std::env::var("POSTGRES_USER")?,
+                std::env::var("POSTGRES_PASSWORD")?,
+                "postgres".to_string()).as_str(), 
+            tokio_postgres::NoTls
+    ).await?;
+    tokio::spawn(async move {
+        if let Err(e) = connection.await{
+            eprintln!("Error connecting to db: {}", e);
+        }
+    });
+
+    match client.batch_execute(
+        &format!("CREATE DATABASE {}", std::env::var("POSTGRES_DB")?)
+    ).await{
+        Ok(_) => {},
+        Err(_) => {println!("Database was already created. Skipping creating another one");}
+    } 
     dotenvy::dotenv().ok();
     
     let (client, connection) = tokio_postgres::connect(
