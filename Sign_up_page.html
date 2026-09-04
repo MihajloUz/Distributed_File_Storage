@@ -5,96 +5,161 @@
     <title>Sign up</title>
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        form { display: flex; flex-direction: column; width: 300px; gap: 10px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        form { display: flex; flex-direction: column; width: 300px; gap: 8px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
         input { padding: 8px; font-size: 14px; }
-        button { padding: 10px; background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button { padding: 10px; background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
         button:hover { background: #0056b3; }
-        button:disabled { background: #cccccc; cursor: not-allowed; }
-        #message { margin-top: 10px; font-size: 14px; text-align: center; }
+        
+        .error {
+            font-size: 12px;
+            color: red;
+            display: none;
+        }
+        .error.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
 
-    <form id="signupForm">
+    <form novalidate>
         <h2>Sign Up</h2>
-        <input type="email" id="email" placeholder="Enter e-mail" required>
-        <input type="password" id="pass1" placeholder="Create password" required>
-        <input type="password" id="pass2" placeholder="Repeat your password" required>
-        <button type="submit" id="submitBtn">Sign Up</button>
-        <div id="message"></div>
+        
+        <input type="email" id="mail" placeholder="Enter e-mail" required minlength="8" autocomplete="email">
+        <span class="error" aria-live="polite"></span>
+
+        <input type="password" id="pass1" placeholder="Create password" required minlength="6" autocomplete="new-password">
+        <span class="error" aria-live="polite"></span>
+
+        <input type="password" id="pass2" placeholder="Repeat password" required autocomplete="new-password">
+        <span class="error" aria-live="polite"></span>
+
+        <button type="submit">Sign Up</button>
     </form>
 
     <script>
-        const form = document.getElementById('signupForm');
-        const emailInput = document.getElementById('email');
-        const pass1Input = document.getElementById('pass1');
-        const pass2Input = document.getElementById('pass2');
-        const submitBtn = document.getElementById('submitBtn');
-        const messageDiv = document.getElementById('message');
+        const form = document.getElementsByTagName("form")[0];
 
-        // Динамічна перевірка паролів під час введення
-        function validatePasswords() {
-            const pass1 = pass1Input.value;
-            const pass2 = pass2Input.value;
+        const email = document.getElementById("mail");
+        const emailError = document.querySelector("#mail + span.error");
 
-            if (!pass2) {
-                messageDiv.textContent = '';
-                submitBtn.disabled = false;
-                return;
-            }
+        const pass1 = document.getElementById("pass1");
+        const pass1Error = document.querySelector("#pass1 + span.error");
 
-            if (pass1 === pass2) {
-                messageDiv.textContent = 'Passwords match';
-                messageDiv.style.color = 'green';
-                submitBtn.disabled = false;
+        const pass2 = document.getElementById("pass2");
+        const pass2Error = document.querySelector("#pass2 + span.error");
+
+        //Валидация Email
+        email.addEventListener("input", function () {
+            if (email.validity.valid) {
+                emailError.textContent = "";
+                emailError.className = "error";
             } else {
-                messageDiv.textContent = 'Passwords do not match';
-                messageDiv.style.color = 'red';
-                submitBtn.disabled = true;
+                showEmailError();
+            }
+        });
+
+        pass1.addEventListener("input", function () {
+            if (pass1.validity.valid) {
+                pass1Error.textContent = "";
+                pass1Error.className = "error";
+            } else {
+                showPass1Error();
+            }
+        
+            if (pass2.value) validatePasswordMatch();
+        });
+
+        pass2.addEventListener("input", validatePasswordMatch);
+
+        function validatePasswordMatch() {
+            if (pass2.validity.valueMissing) {
+                pass2Error.textContent = "Please repeat your password.";
+                pass2Error.className = "error active";
+            } else if (pass1.value !== pass2.value) {
+                pass2Error.textContent = "Passwords do not match.";
+                pass2Error.className = "error active";
+            } else {
+                pass2Error.textContent = "";
+                pass2Error.className = "error";
             }
         }
 
-        pass1Input.addEventListener('input', validatePasswords);
-        pass2Input.addEventListener('input', validatePasswords);
+        form.addEventListener("submit", function (event) {
+            let isValid = true;
 
-        // Обробка відправки форми
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            if (pass1Input.value !== pass2Input.value) {
-                messageDiv.textContent = 'Passwords do not match';
-                messageDiv.style.color = 'red';
-                return;
+            if (!email.validity.valid) {
+                showEmailError();
+                isValid = false;
             }
 
-            messageDiv.style.color = 'black';
-            messageDiv.textContent = 'Verification...';
+            if (!pass1.validity.valid) {
+                showPass1Error();
+                isValid = false;
+            }
 
-            try {
-                const response = await fetch('http://localhost:8000/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        email: emailInput.value, 
-                        password: pass1Input.value 
-                    })
-                });
+            if (!pass2.value || pass1.value !== pass2.value) {
+                validatePasswordMatch();
+                isValid = false;
+            }
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageDiv.style.color = 'green';
-                    messageDiv.textContent = data.message || 'Success!';
-                } else {
-                    messageDiv.style.color = 'red';
-                    messageDiv.textContent = data.detail || 'Registration error';
-                }
-            } catch (error) {
-                messageDiv.style.color = 'red';
-                messageDiv.textContent = 'Server error';
+            if (!isValid) {
+                event.preventDefault();
+            } else {
+                event.preventDefault();
+                alert("Form successfully submitted!");
             }
         });
-    </script>
 
+        function showEmailError() {
+            if (email.validity.valueMissing) {
+                emailError.textContent = "You need to enter an e-mail address.";
+            } else if (email.validity.typeMismatch) {
+                emailError.textContent = "Entered value needs to be an e-mail address.";
+            } else if (email.validity.tooShort) {
+                emailError.textContent = `Email should be at least ${email.minLength} characters; you entered ${email.value.length}.`;
+            }
+            emailError.className = "error active";
+        }
+
+        function showPass1Error() {
+            if (pass1.validity.valueMissing) {
+                pass1Error.textContent = "You need to enter a password.";
+            } else if (pass1.validity.tooShort) {
+                pass1Error.textContent = `Password should be at least ${pass1.minLength} characters; you entered ${pass1.value.length}.`;
+            }
+            pass1Error.className = "error active";
+        }
+
+        form.addEventListener("submit", async function (event) {
+  event.preventDefault();
+
+  //Собираем данные формы
+  const userData = {
+    email: email.value,
+    password: pass1.value
+  };
+
+  try {
+    //запрос на сервер
+    const response = await fetch("http://localhost:8000/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userData)
+    });
+
+    if (response.ok) {
+      alert("Registration succesfuly!");
+      window.location.href = "welcome.html"; 
+    } else {
+      const errorData = await response.json();
+      alert("Error: " + (errorData.message || "Invalid registration"));
+    }
+  } catch (error) {
+    console.error("Ошибка сети:", error);
+    alert("No server connection");
+  }
+});
+    </script>
 </body>
 </html>
