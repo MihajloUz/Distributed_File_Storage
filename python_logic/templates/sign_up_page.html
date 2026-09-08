@@ -51,7 +51,6 @@
         const pass2 = document.getElementById("pass2");
         const pass2Error = document.querySelector("#pass2 + span.error");
 
-        //Валидация Email
         email.addEventListener("input", function () {
             if (email.validity.valid) {
                 emailError.textContent = "";
@@ -136,15 +135,13 @@
         form.addEventListener("submit", async function (event) {
   event.preventDefault();
 
-  //Собираем данные формы
   const userData = {
     email: email.value,
     password: pass1.value
   };
 
   try {
-    //запрос на сервер
-    const response = await fetch("http://localhost:8000/register", {
+    const response = await fetch("/api/sign_up_page", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(userData)

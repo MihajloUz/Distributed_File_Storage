@@ -53,12 +53,12 @@ def sign_up_page(user: UserAuth):
         conn.commit()
         cursor.close()
 
-        return JSONResponse(
+        return JSONResponse( # краще для пайтона самому перенаправляти на іншу сторіку, а не кидати це на джс
             status_code=status.HTTP_201_CREATED,
             content={
                 "success": True,
                 "message": "Registration successful",
-                "redirect_url": "/main"
+                "redirect_url": "/main" # 
             }
         )
     except Exception as e:
@@ -75,7 +75,7 @@ def sign_up_page(user: UserAuth):
 
 @app.post("/api/login")
 def login_user(user: UserAuth):
-    conn = True
+    conn = None 
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -87,7 +87,7 @@ def login_user(user: UserAuth):
         cursor.close()
 
         if existing_user:
-            return JSONResponse(
+            return JSONResponse( # тут так само, просто перенаправити в пайтоні. а не в джс
                 status_code=status.HTTP_200_OK,
                 content={
                     "success": True,
