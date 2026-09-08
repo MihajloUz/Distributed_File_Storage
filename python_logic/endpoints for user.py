@@ -11,10 +11,6 @@ from pydantic import BaseModel, EmailStr
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-UPLOAD_DIR = "uploaded_files"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024
-
 DB_CONFIG = {
     'dbname':'dfs_db',
     'user':'postgres',
@@ -115,100 +111,10 @@ def login_user(user: UserAuth):
         if conn:
             conn.close()
 
-#загрузка файлов эндпоинты
-@app.get("/main", response_model=HTMLResponse)
-async def get_main_page(request: Request) -> TemplateResponse:
-    return templates.TemplatesResponse(request=request, name="main.html")
+# тут будеш отримувати повідомлення про те, чи вийшло в мене завантажити файл від користувача  
 
-@app.post("/api/upload")
-def upload_file(file: UploadFile = File(...)):
-    if file.size and file.size > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File size too large. Max size: 10GB"
-        )
 
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    total_bytes_written = 0
-
-    try:
-        with open(file_path, "wb") as buffer:
-            while chunk := file.file.read(1024 * 1024):
-                total_bytes_written += len(chunk)
-
-                if total_bytes_written > MAX_FILE_SIZE:
-                    buffer.close()
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail="The file exceeds the 10 GB limit."
-                    )
-                buffer.write(chunk)
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        query = """
-            INSERT INTO user_files (filename, filepath, file_size)
-            VALUES (%s, %s, %s)
-            RETURNING id;
-        """
-        cursor.execute(query, (file.filename, file_path, total_bytes_written))
-        file_id = cursor.fetchone()[0]
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        return JSONResponse(
-            status_code=status.HTTP_201_CREATED,
-            content={"message": "File upload successful!", "id": file_id}
-        )
-
-    except HTTPException as http_err:
-        raise http_err
-    except Exception as e:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        print(f"Error uploading file: {e}")
-        raise HTTPException(status_code=500, 
-                            detail="Error uploading the file")
-
-#отримати список завантажених файлів
-@app.get("/api/files")
-def get_files_list():
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-
-    query = "SELECT id, filename, file_size, uploaded_at FROM user_files ORDER BY id DESC"
-    cursor.execute(query)
-    files = cursor.fetchall()
-    
-    cursor.close()
-    conn.close()
-
-    for f in files:
-        f['uploaded_at'] = f['uploaded_at'].strftime("%Y-%m-%d %H:%M:%S")
-
-    return JSONResponse(content={"files": files})
-
-#скачати великий файл
-@app.get("/api/files/{file_id}")
-def download_file(file_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-
-    query = "SELECT filename, filepath FROM user_files WHERE id = %s"
-    cursor.execute(query, (file_id,))
-    file_record = cursor.fetchone()
-    
-    cursor.close()
-    conn.close()
-
-    if not file_record or not os.path.exists(file_record['filepath']):
-        raise HTTPException(status_code=404, detail="Файл не найден")
-    return FileResponse(
-        path=file_record['filepath'],
-        filename=file_record['filename'],
-        media_type='application/octet-stream'
-    )
+# тут будеш отримувати дані з бд про файли користувача, які є на сервері.
+# Ну і генерувати сторінку з показом тих файлів типу.
+# Чи може я буду цим займатись.
+# Короче ще обсудимо
