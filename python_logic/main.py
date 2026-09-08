@@ -27,6 +27,15 @@ def get_db_connection():
     conn = psycopg2.connect(**DB_CONFIG)
     return conn
 
+@app.get("/", response_class=HTMLResponse)
+async def get_signup_page(request: Request):
+    return templates.TemplateResponse(
+        request=request, 
+        name="main.html"
+    )
+
+# /api/upload
+
 @app.get("/sign_up_page", response_class=HTMLResponse)
 async def get_signup_page(request: Request):
     return templates.TemplateResponse(
