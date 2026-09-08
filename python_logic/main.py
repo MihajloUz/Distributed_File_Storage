@@ -1,9 +1,10 @@
 import os
+import httpx
 import shutil
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr
 
@@ -118,3 +119,13 @@ def login_user(user: UserAuth):
 # Ну і генерувати сторінку з показом тих файлів типу.
 # Чи може я буду цим займатись.
 # Короче ще обсудимо
+
+# я тут трошки подивлюсь як працюють повідомлення між растом і пайтоном
+@app.get("/rust") # короче ця хуйня відправляє повідомлення на порт :8001, я на расті ловлю повідомлення про сторінку(в цьому випадку це "/rust") і запускаю свої функції якісь. потім просто відправляю тобі сторінку, яку потрібно завантажити. і ти на пайтоні вже завантажуєш її 
+async def get_rust_response():
+    async with httpx.AsyncClient() as client:
+        response = await client.get("http://rust:8001/rust")
+    return HTMLResponse(
+        content=response.text,
+        status_code=response.status_code
+    )

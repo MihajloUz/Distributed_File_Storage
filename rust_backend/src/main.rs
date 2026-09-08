@@ -54,9 +54,18 @@ async fn upload_on_server(
     Ok((StatusCode::OK, "Data uploaded successfully").into_response())
 }
 
+
+//example of rust receiving page url from python
+async fn to_rust() -> Html<String>{
+    Html("
+    <h1>Received msg from python and loaded this page</h1>
+        ".to_string())
+}
+
 fn create_app(state: AppState) -> Router{
     Router::new()
-        .route("/upload_file/{user_id}/{relative_path}", post(upload_on_server))
+        .route("/upload_file/{user_id}/{relative_path}", post(upload_on_server)) // to update later
+        .route("/rust", get(to_rust))
         .with_state(state)
 }
 
