@@ -52,7 +52,7 @@
                 filesList.innerHTML = '';
 
                 if (data.files.length === 0) {
-                    filesList.innerHTML = '<li>Файлы еще не загружались</li>';
+                    filesList.innerHTML = "<li>The files haven't been uploaded yet</li>";
                     return;
                 }
 
@@ -67,7 +67,7 @@
                     filesList.appendChild(li);
                 });
             } catch (error) {
-                console.error("Ошибка при получении списка файлов:", error);
+                console.error("Error:", error);
             }
         }
 
@@ -81,7 +81,7 @@
             formData.append('file', fileInput.files[0]);
 
             messageDiv.style.color = 'black';
-            messageDiv.textContent = 'Загрузка...';
+            messageDiv.textContent = 'Loading...';
 
             try {
                 const response = await fetch('/api/upload', {
@@ -98,11 +98,11 @@
                     loadFilesList(); 
                 } else {
                     messageDiv.style.color = 'red';
-                    messageDiv.textContent = result.detail || 'Ошибка загрузки';
+                    messageDiv.textContent = result.detail || 'Upload error';
                 }
             } catch (error) {
                 messageDiv.style.color = 'red';
-                messageDiv.textContent = 'Network konnection error';
+                messageDiv.textContent = 'Network connection error';
             }
         });
 
@@ -137,7 +137,7 @@ async function loadFilesList() {
             filesList.appendChild(li);
         });
     } catch (error) {
-        console.error("Ошибка при получении списка файлов:", error);
+        console.error("Error:", error);
     }
 }
     </script>
