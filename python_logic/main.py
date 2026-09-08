@@ -96,6 +96,7 @@ def login_user(user: UserAuth):
         cursor.close()
 
         if existing_user:
+            # json with user email
             return JSONResponse( # тут так само, просто перенаправити в пайтоні. а не в джс
                 status_code=status.HTTP_200_OK,
                 content={

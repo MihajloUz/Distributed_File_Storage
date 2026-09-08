@@ -1,4 +1,5 @@
 use axum::{http::StatusCode, response::IntoResponse};
+use axum_extra::extract::cookie::{Cookie, CookieJar};
 use std::{fmt, env};
 use deadpool_postgres::{
     Config, 
@@ -148,8 +149,14 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
         
         CREATE TABLE IF NOT EXISTS user_files(
             user_id UUID NOT NULL REFERENCES users(id),
-            path TEXT NOT NULL UNIQUE,
             file_name TEXT NOT NULL UNIQUE
+        );
+
+
+        CREATE TABLE IF NOT EXISTS sessions(
+            user_id UUID NOT NULL REFERENCES users(id),
+            session_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+            expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days'
         );
         "
     ).await?;
@@ -157,5 +164,6 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
     Ok(())
 }
 
-
-
+pub fn get_cookie(jar: &CookieJar, cookie_name: &str) -> Option<String> {
+    jar.get(cookie_name).map(|cookie| cookie.value().to_string())
+}
