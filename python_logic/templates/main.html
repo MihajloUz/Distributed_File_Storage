@@ -46,7 +46,7 @@
         //функция загрузки и отображения списка файлов
         async function loadFilesList() {
             try {
-                const response = await fetch('/api/files');
+                const response = await fetch('/read_files');
                 const data = await response.json();
 
                 filesList.innerHTML = '';
@@ -77,8 +77,7 @@
 
             if (!fileInput.files[0]) return;
 
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            const file = fileInput.files[0];
 
             messageDiv.style.color = 'black';
             messageDiv.textContent = 'Загрузка...';
@@ -86,7 +85,10 @@
             try {
                 const response = await fetch('/api/upload', {
                     method: 'POST',
-                    body: formData 
+                    headers: {
+                        'Filename': file.name,
+                    }
+                    body: file 
                 });
 
                 const result = await response.json();
