@@ -102,7 +102,7 @@
                 }
             } catch (error) {
                 messageDiv.style.color = 'red';
-                messageDiv.textContent = 'Ошибка сети';
+                messageDiv.textContent = 'Network konnection error';
             }
         });
 
@@ -119,11 +119,10 @@ async function loadFilesList() {
     try {
         const response = await fetch('/api/files');
         const data = await response.json();
-
         filesList.innerHTML = '';
 
         if (data.files.length === 0) {
-            filesList.innerHTML = '<li>Файлы еще не загружались</li>';
+            filesList.innerHTML = "<li>The files haven't been uploaded yet</li>";
             return;
         }
 
