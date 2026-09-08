@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+psycopg2-binary
+jinja2
+pydantic
+email-validator
+python-multipart
+

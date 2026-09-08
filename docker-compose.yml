@@ -1,8 +1,8 @@
 services:
   rust: 
     build: 
-      context: ./rust_backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rust_backend/Dockerfile
     env_file:
       - .env
     ports:
@@ -13,8 +13,8 @@ services:
       - user_data:/app/user_data
   python: 
     build: 
-      context: ./python_logic
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: python_logic/Dockerfile
     env_file:
       - .env
     ports:

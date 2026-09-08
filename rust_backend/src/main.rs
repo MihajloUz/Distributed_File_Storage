@@ -1,5 +1,4 @@
 use std::os::unix::fs::OpenOptionsExt;
-
 use axum::{
     Router,
     body::Body,
@@ -102,14 +101,14 @@ async fn main() -> Result<(), ServerError>{
     });
 
     let pool = create_pool()?;
-    setting_up_db(&pool);
+    setting_up_db(&pool).await;
 
     let state = AppState{
         db: pool, 
     };
 
     let app = create_app(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8001").await?;
 
     axum::serve(listener, app).await?;
     Ok(())

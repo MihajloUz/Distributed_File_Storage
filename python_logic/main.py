@@ -5,7 +5,6 @@ from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
-from starlette.responses import TemplateResponse
 from pydantic import BaseModel, EmailStr
 
 app = FastAPI()
@@ -15,7 +14,7 @@ DB_CONFIG = {
     'dbname':'dfs_db',
     'user':'postgres',
     'password':'password_for_db',
-    'host':'localhost',
+    'host':'db',
     'port':'5432'
 }
 
@@ -27,19 +26,20 @@ def get_db_connection():
     conn = psycopg2.connect(**DB_CONFIG)
     return conn
 
-@app.get("/Sign_up_page", response_class=HTMLResponse)
-async def get_signup_page(
-    request: Request
-):
-   return templates.TemplateResponse(
+@app.get("/sign_up_page", response_class=HTMLResponse)
+async def get_signup_page(request: Request):
+    return templates.TemplateResponse(
         request=request, 
-        name="Sing_up_page.html"
+        name="sign_up_page.html"
     )
 @app.get("/login_page", response_class=HTMLResponse)
 async def get_login_page(request: Request):
-    return templates.TemplateResponse("login_page.html", {"request": request})
+    return templates.TemplateResponse (
+            request=request, 
+            name="login_page.html" 
+    )
 
-@app.post("/api/Sign_up_page")
+@app.post("/api/sign_up_page")
 def sign_up_page(user: UserAuth):
     conn = None
     try:
