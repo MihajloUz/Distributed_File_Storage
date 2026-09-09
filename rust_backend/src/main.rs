@@ -8,7 +8,7 @@ use axum::{
         Path,
         State,
         Json,
-    }
+    },
     http::{
         HeaderMap,
         Method,
@@ -41,7 +41,7 @@ async fn create_cookie(
     State(state): State<AppState>,
     jar: CookieJar, 
     Json(data): Json<UserJson> 
-    ) -> Result<(CookieJar, Json), ServerError> {
+    ) -> Result<(CookieJar, Json<serde_json::Value>), ServerError> {
 
     let client = state.db.get().await?;
     let row = client.query_opt(
@@ -84,9 +84,9 @@ async fn create_cookie(
 
 async fn upload_on_server(
     jar: CookieJar,
-    body: Body,
     headers: HeaderMap,
-    State(state): State<AppState>
+    State(state): State<AppState>,
+    body: Body
 
 ) -> Result<impl IntoResponse, ServerError>{
     let filename = headers.get("Filename")
@@ -94,7 +94,7 @@ async fn upload_on_server(
         .unwrap_or("Unnamed");
 
     if let Some(value) = get_cookie(&jar, "session_id"){
-        let session_id: uuid::Uuid = value.parse()?;  
+        let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::GeneralIo)?;
         
         let client = state.db.get().await?;
        
@@ -104,8 +104,8 @@ async fn upload_on_server(
         ).await?;
 
         let Some(row) = row else{
-            return ServerError::GeneralIo; //refactor for real error
-        }
+            return Err(ServerError::GeneralIo); //refactor for real error
+        };
         
         let user_id: uuid::Uuid = row.get("user_id");
 
@@ -137,7 +137,7 @@ async fn upload_on_server(
         }
         Ok((StatusCode::OK, "Data uploaded successfully").into_response())
     }else{
-
+        Err(ServerError::GeneralIo)
     }
 }
 
