@@ -131,6 +131,45 @@ async def login_user(
         if conn:
             conn.close()
 
+# Константи для завантаження
+UPLOAD_DIR = "uploaded_files"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024
+
+@app.post("/api/upload")
+async def upload_file(
+    file: UploadFile = File(...)
+):
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    total_bytes_written = 0
+
+    try:
+        with open(file_path, "wb") as buffer:
+            while chunk := await file.read(1024 * 1024):
+                total_bytes_written += len(chunk)
+                if total_bytes_written > MAX_FILE_SIZE:
+                    buffer.close()
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    return RedirectResponse(
+                        url="/?error=file_too_large",
+                        status_code=status.HTTP_303_SEE_OTHER
+                    )
+                buffer.write(chunk)
+
+        return RedirectResponse(
+            url="/?success=upload_complete",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+    except Exception as e:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        print(f"Upload file: {e}")
+        return RedirectResponse(
+            url="/?error=upload_failed",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+
 #@app.get("/rust")
 #async def get_rust_response():
 #    async with httpx.AsyncClient() as client:
