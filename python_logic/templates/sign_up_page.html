@@ -22,7 +22,7 @@
 </head>
 <body>
 
-    <form action="/api/sign_up_page" method="POST" id="signupForm">
+    <form id="signupForm">
     <input type="email" name="email" id="mail" required placeholder="Email">
     <span class="error"></span>
 
@@ -105,7 +105,8 @@
         pass1Error.className = "error active";
     }
 
-    form.addEventListener("submit", function (event) {
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
         let isValid = true;
 
         if (!email.validity.valid) {
@@ -124,8 +125,28 @@
         }
 
         if (!isValid) {
-            event.preventDefault();
+            e.preventDefault();
+            return;
         }
+        const emailValue = email.value;
+        const passwordValue = pass1.value;
+        
+        const response = await fetch('/api/sign_up', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                email: emailValue, 
+                password: passwordValue 
+            })
+        });
+        
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        
     });
 </script>
 </body>

@@ -63,8 +63,7 @@ async def get_login_page(request: Request):
 
 @app.post("/api/sign_up")
 def sign_up_page(
-    email: str = Form(...),
-    password: str = Form(...)
+        data: UserAuth
 ):
     conn = None
     try:
@@ -72,7 +71,7 @@ def sign_up_page(
         cursor = conn.cursor()
 
         query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-        cursor.execute(query, (email, password))
+        cursor.execute(query, (data.email, data.password))
 
         conn.commit()
         cursor.close()
@@ -89,7 +88,7 @@ def sign_up_page(
 
 @app.post("/api/login")
 async def login_user(
-        data: UserAuth
+    data: UserAuth
 ):
     conn = None 
     try:
