@@ -30,9 +30,8 @@ struct UserJson{
 
 async fn create_cookie(
     State(state): State<AppState>,
-    jar: CookieJar, 
     Json(data): Json<UserJson> 
-    ) -> Result<(CookieJar, Json<serde_json::Value>), ServerError> {
+    ) -> Result<Json<serde_json::Value>, ServerError> {
 
     let client = state.db.get().await?;
     let row = client.query_opt(
@@ -41,13 +40,12 @@ async fn create_cookie(
     ).await?;
 
     let Some(row) = row else{
-        return Ok((
-            jar,
+        return Ok(
             Json(serde_json::json!({
                 "success": false,
-                "message": "Unsuccessful login",
+                "session_id": "No session id was created"
             })),
-        ));
+        );
     };
 
     let user_id: uuid::Uuid = row.get("id");
@@ -59,18 +57,12 @@ async fn create_cookie(
 
     let session_id: uuid::Uuid = row.get("session_id");
 
-    let cookie = Cookie::build(("session_id", session_id.to_string()))
-        .path("/")
-        .http_only(true)
-        .build();
-
-    return Ok((
-        jar.add(cookie), 
+    return Ok(
         Json(serde_json::json!({
             "success": true,
-            "message": "Cookie was created successfully",
+            "session_id": session_id
         })),
-    ));
+    );
 }
 
 async fn upload_on_server(
@@ -134,6 +126,7 @@ async fn upload_on_server(
 
 fn create_app(state: AppState) -> Router{
     Router::new()
+        .route("/login_successful", post(create_cookie)) 
         .route("/api/upload", post(upload_on_server)) 
         .with_state(state)
 }
@@ -186,7 +179,7 @@ async fn main() -> Result<(), ServerError>{
     };
 
     let app = create_app(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8001").await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8001").await?;
 
     axum::serve(listener, app).await?;
     Ok(())
