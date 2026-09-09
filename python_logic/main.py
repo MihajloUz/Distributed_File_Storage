@@ -3,7 +3,7 @@ import httpx
 import shutil
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File, Form, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr
@@ -19,6 +19,11 @@ class UserAuth(BaseModel):
     password: str
 
 def get_db_connection():
+    print("HOST:", os.getenv("POSTGRES_HOST"))
+    print("PORT:", os.getenv("POSTGRES_PORT"))
+    print("USER:", os.getenv("POSTGRES_USER"))
+    print("DB:", os.getenv("POSTGRES_DB"))
+
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "localhost"),
         user=os.getenv("POSTGRES_USER", "postgres"),
@@ -28,19 +33,27 @@ def get_db_connection():
     )
 
 @app.get("/", response_class=HTMLResponse)
-async def get_home_page(request: Request):
-    return templates.TemplateResponse(
-        request=request, 
-        name="main.html"
+async def get_home_page(
+    request: Request,
+    session_id: str | None = Cookie(default=None)
+):
+    if session_id is None:
+        return RedirectResponse(
+            url="/login",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+    return templates.TemplateResponse (
+            request=request, 
+            name="main.html" 
     )
 
-@app.get("/sign_up_page", response_class=HTMLResponse)
+@app.get("/sign_up", response_class=HTMLResponse)
 async def get_signup_page(request: Request):
     return templates.TemplateResponse(
         request=request, 
         name="sign_up_page.html"
     )
-@app.get("/login_page", response_class=HTMLResponse)
+@app.get("/login", response_class=HTMLResponse)
 async def get_login_page(request: Request):
     return templates.TemplateResponse (
             request=request, 
@@ -48,7 +61,7 @@ async def get_login_page(request: Request):
     )
 
 
-@app.post("/api/sign_up_page")
+@app.post("/api/sign_up")
 def sign_up_page(
     email: str = Form(...),
     password: str = Form(...)
@@ -69,16 +82,14 @@ def sign_up_page(
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"Database error: {e}")
-        return RedirectResponse(url="/sign_up_page?error=db_error", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/sign_up?error=db_error", status_code=status.HTTP_303_SEE_OTHER)
     finally:
         if conn:
             conn.close()
 
 @app.post("/api/login")
-def login_user(
-    email: str = Form(...),
-    password: str = Form(...)
+async def login_user(
+        data: UserAuth
 ):
     conn = None 
     try:
@@ -86,17 +97,37 @@ def login_user(
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         query = "SELECT * FROM users WHERE email = %s AND password = %s"
-        cursor.execute(query, (email, password))
+        cursor.execute(query, (data.email, data.password))
         existing_user = cursor.fetchone()
         cursor.close()
 
         if existing_user:
-            return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+            # creating cookie here
+            async with httpx.AsyncClient() as client:
+                response = await client.post("http://rust:8001/login_successful", json={"email": data.email})
+            rust_data = response.json()
+            if not rust_data["success"]:
+                return rust_data
+                
+            redirect = RedirectResponse(
+                url="/",
+                status_code=status.HTTP_303_SEE_OTHER
+            )
+
+            session_id = rust_data["session_id"]
+            redirect.set_cookie(
+                key="session_id",
+                value=session_id,
+                httponly=True,
+                path="/"
+            )
+            return redirect 
         else:
-            return RedirectResponse(url="/login_page?error=invalid_credentials", status_code=status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(url="/login?error=invalid_credentials", status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
-        print(f"Database error: {e}")
-        return RedirectResponse(url="/login_page?error=server_error", status_code=status.HTTP_303_SEE_OTHER)
+        print(f"ERROR TYPE: {type(e)}")
+        print(f"ERROR: {e}")
+        return RedirectResponse(url="/login?error=server_error", status_code=status.HTTP_303_SEE_OTHER)
     finally:
         if conn:
             conn.close()
@@ -109,12 +140,5 @@ def login_user(
 #        content=response.text,
 #        status_code=response.status_code
 #    )
-
-@app.get("/", response_class=HTMLResponse)
-async def get_home_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="main.html"
-    )
 
 # later create the endpoint for talking with rust on user sending/reading files 

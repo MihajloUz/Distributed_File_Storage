@@ -1,34 +1,25 @@
-use std::os::unix::fs::OpenOptionsExt;
 use serde::Deserialize;
 use axum::{
     Router,
     body::Body,
-    body::BodyDataStream,
     extract::{
-        Path,
         State,
         Json,
     },
     http::{
         HeaderMap,
-        Method,
         StatusCode
     },
     response::{
         IntoResponse,
-        Html,
-        Redirect,
     },
     routing::{
-        get,
         post
     }, 
 };
 use rust_backend::*;
-use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
-use axum::body::to_bytes;
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use futures_util::StreamExt;  
 
@@ -39,9 +30,8 @@ struct UserJson{
 
 async fn create_cookie(
     State(state): State<AppState>,
-    jar: CookieJar, 
     Json(data): Json<UserJson> 
-    ) -> Result<(CookieJar, Json<serde_json::Value>), ServerError> {
+    ) -> Result<Json<serde_json::Value>, ServerError> {
 
     let client = state.db.get().await?;
     let row = client.query_opt(
@@ -50,13 +40,12 @@ async fn create_cookie(
     ).await?;
 
     let Some(row) = row else{
-        return Ok((
-            jar,
+        return Ok(
             Json(serde_json::json!({
                 "success": false,
-                "message": "Unsuccessful login",
+                "session_id": "No session id was created"
             })),
-        ));
+        );
     };
 
     let user_id: uuid::Uuid = row.get("id");
@@ -68,18 +57,12 @@ async fn create_cookie(
 
     let session_id: uuid::Uuid = row.get("session_id");
 
-    let cookie = Cookie::build(("session_id", session_id.to_string()))
-        .path("/")
-        .http_only(true)
-        .build();
-
-    return Ok((
-        jar.add(cookie), 
+    return Ok(
         Json(serde_json::json!({
             "success": true,
-            "message": "Cookie was created successfully",
+            "session_id": session_id
         })),
-    ));
+    );
 }
 
 async fn upload_on_server(
@@ -143,6 +126,7 @@ async fn upload_on_server(
 
 fn create_app(state: AppState) -> Router{
     Router::new()
+        .route("/login_successful", post(create_cookie)) 
         .route("/api/upload", post(upload_on_server)) 
         .with_state(state)
 }
@@ -173,7 +157,7 @@ async fn main() -> Result<(), ServerError>{
     } 
     dotenvy::dotenv().ok();
     
-    let (client, connection) = tokio_postgres::connect(
+    let (_client, connection) = tokio_postgres::connect(
         format!("host={} user={} password={} dbname={}",
                 std::env::var("POSTGRES_HOST")?,
                 std::env::var("POSTGRES_USER")?,
@@ -188,7 +172,7 @@ async fn main() -> Result<(), ServerError>{
     });
 
     let pool = create_pool()?;
-    setting_up_db(&pool).await;
+    setting_up_db(&pool).await?;
 
     let state = AppState{
         db: pool, 

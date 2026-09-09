@@ -36,14 +36,21 @@
             messageDiv.textContent = 'Verification..';
 
             try {
-                const response = await fetch('http://127.0.0', {
+                const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ 
+                        email: username, 
+                        password: password 
+                    })
                 });
 
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return;
+                }
                 const data = await response.json();
 
                 if (response.ok) {

@@ -1,5 +1,5 @@
 use axum::{http::StatusCode, response::IntoResponse};
-use axum_extra::extract::cookie::{Cookie, CookieJar};
+use axum_extra::extract::cookie::CookieJar;
 use std::{fmt, env};
 use deadpool_postgres::{
     Config, 
