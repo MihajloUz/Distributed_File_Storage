@@ -86,6 +86,9 @@
             try {
                 const response = await fetch('/api/upload', {
                     method: 'POST',
+                    headers: {
+                        'Filename': file.name,
+                    }
                     body: formData 
                 });
 
