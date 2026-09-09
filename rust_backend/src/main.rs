@@ -1,34 +1,25 @@
-use std::os::unix::fs::OpenOptionsExt;
 use serde::Deserialize;
 use axum::{
     Router,
     body::Body,
-    body::BodyDataStream,
     extract::{
-        Path,
         State,
         Json,
     },
     http::{
         HeaderMap,
-        Method,
         StatusCode
     },
     response::{
         IntoResponse,
-        Html,
-        Redirect,
     },
     routing::{
-        get,
         post
     }, 
 };
 use rust_backend::*;
-use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
-use axum::body::to_bytes;
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use futures_util::StreamExt;  
 
@@ -173,7 +164,7 @@ async fn main() -> Result<(), ServerError>{
     } 
     dotenvy::dotenv().ok();
     
-    let (client, connection) = tokio_postgres::connect(
+    let (_client, connection) = tokio_postgres::connect(
         format!("host={} user={} password={} dbname={}",
                 std::env::var("POSTGRES_HOST")?,
                 std::env::var("POSTGRES_USER")?,
@@ -188,14 +179,14 @@ async fn main() -> Result<(), ServerError>{
     });
 
     let pool = create_pool()?;
-    setting_up_db(&pool).await;
+    setting_up_db(&pool).await?;
 
     let state = AppState{
         db: pool, 
     };
 
     let app = create_app(state);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8001").await?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:8001").await?;
 
     axum::serve(listener, app).await?;
     Ok(())
