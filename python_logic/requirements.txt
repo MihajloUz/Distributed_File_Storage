@@ -6,4 +6,4 @@ jinja2
 pydantic
 email-validator
 python-multipart
-
+python-dotenv

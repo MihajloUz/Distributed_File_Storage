@@ -7,17 +7,12 @@ from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File, F
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr
-from starlette.responses import TemplateResponse
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
-UPLOAD_DIR = "uploaded_files"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024
 
 class UserAuth(BaseModel):
     email: EmailStr
@@ -33,7 +28,7 @@ def get_db_connection():
     )
 
 @app.get("/", response_class=HTMLResponse)
-async def get_home_page(request: Request) -> TemplateResponse:
+async def get_home_page(request: Request):
     return templates.TemplateResponse(
         request=request, 
         name="main.html"
@@ -106,60 +101,20 @@ def login_user(
         if conn:
             conn.close()
 
-@app.get("/rust")
-async def get_rust_response():
-    async with httpx.AsyncClient() as client:
-        response = await client.get("http://rust:8001/rust")
-    return HTMLResponse(
-        content=response.text,
-        status_code=response.status_code
-    )
+#@app.get("/rust")
+#async def get_rust_response():
+#    async with httpx.AsyncClient() as client:
+#        response = await client.get("http://rust:8001/rust")
+#    return HTMLResponse(
+#        content=response.text,
+#        status_code=response.status_code
+#    )
 
 @app.get("/", response_class=HTMLResponse)
-async def get_home_page(request: Request) -> TemplateResponse:
+async def get_home_page(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="main.html"
     )
 
-@app.post("/api/upload")
-def upload_file(
-    user_id: int = Form(...),
-    file: UploadFile = File(...)
-):
-    conn = None
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    total_bytes_written = 0
-
-    try:
-        with open(file_path, "wb") as buffer:
-            while chunk := file.file.read(1024 * 1024):
-                total_bytes_written += len(chunk)
-                if total_bytes_written > MAX_FILE_SIZE:
-                    buffer.close()
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    return RedirectResponse(url="/?error=too_large", status_code=status.HTTP_303_SEE_OTHER)
-                buffer.write(chunk)
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        query = "INSERT INTO user_files (user_id, filename) VALUES (%s, %s);"
-        cursor.execute(query, (user_id, file.filename))
-
-        conn.commit()
-        cursor.close()
-
-        return RedirectResponse(url="/?success=uploaded", status_code=status.HTTP_303_SEE_OTHER)
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        return RedirectResponse(url="/?error=upload_failed", status_code=status.HTTP_303_SEE_OTHER)
-    finally:
-        if conn:
-            conn.close()
-            conn.close()
+# later create the endpoint for talking with rust on user sending/reading files 
