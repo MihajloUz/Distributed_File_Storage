@@ -46,13 +46,13 @@
         //функция загрузки и отображения списка файлов
         async function loadFilesList() {
             try {
-                const response = await fetch('/read_files');
+                const response = await fetch('/api/files');
                 const data = await response.json();
 
                 filesList.innerHTML = '';
 
                 if (data.files.length === 0) {
-                    filesList.innerHTML = '<li>Файлы еще не загружались</li>';
+                    filesList.innerHTML = "<li>The files haven't been uploaded yet</li>";
                     return;
                 }
 
@@ -67,7 +67,7 @@
                     filesList.appendChild(li);
                 });
             } catch (error) {
-                console.error("Ошибка при получении списка файлов:", error);
+                console.error("Error:", error);
             }
         }
 
@@ -77,18 +77,16 @@
 
             if (!fileInput.files[0]) return;
 
-            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
 
             messageDiv.style.color = 'black';
-            messageDiv.textContent = 'Загрузка...';
+            messageDiv.textContent = 'Loading...';
 
             try {
                 const response = await fetch('/api/upload', {
                     method: 'POST',
-                    headers: {
-                        'Filename': file.name,
-                    }
-                    body: file 
+                    body: formData 
                 });
 
                 const result = await response.json();
@@ -100,11 +98,11 @@
                     loadFilesList(); 
                 } else {
                     messageDiv.style.color = 'red';
-                    messageDiv.textContent = result.detail || 'Ошибка загрузки';
+                    messageDiv.textContent = result.detail || 'Upload error';
                 }
             } catch (error) {
                 messageDiv.style.color = 'red';
-                messageDiv.textContent = 'Ошибка сети';
+                messageDiv.textContent = 'Network connection error';
             }
         });
 
@@ -121,11 +119,10 @@ async function loadFilesList() {
     try {
         const response = await fetch('/api/files');
         const data = await response.json();
-
         filesList.innerHTML = '';
 
         if (data.files.length === 0) {
-            filesList.innerHTML = '<li>Файлы еще не загружались</li>';
+            filesList.innerHTML = "<li>The files haven't been uploaded yet</li>";
             return;
         }
 
@@ -140,7 +137,7 @@ async function loadFilesList() {
             filesList.appendChild(li);
         });
     } catch (error) {
-        console.error("Ошибка при получении списка файлов:", error);
+        console.error("Error:", error);
     }
 }
     </script>
