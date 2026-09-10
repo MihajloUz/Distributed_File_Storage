@@ -73,6 +73,8 @@ async fn create_cookie(
 // and add data about the file to table user_files
 
 
+
+// now it reutrn json correctly 
 async fn upload_on_server(
     jar: CookieJar,
     headers: HeaderMap,
@@ -83,10 +85,8 @@ async fn upload_on_server(
     let filename = headers.get("Filename")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("Unnamed");
-
     if let Some(value) = get_cookie(&jar, "session_id"){
         let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::Parsing)?;
-        
         let client = state.db.get().await?;
        
         let row = client.query_opt(
@@ -126,11 +126,10 @@ async fn upload_on_server(
                 },
             }
         }
-        //db writing
-        let row = client.query_one(
+        let row = client.execute(
             "INSERT INTO user_files (user_id, file_name) VALUES ($1, $2)",
             &[&user_id, &filename]
-        ).await;
+        ).await?;
         Ok(
             Json(serde_json::json!({
                 "success": true,

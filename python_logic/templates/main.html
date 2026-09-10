@@ -71,25 +71,29 @@
             }
         }
 
-        //отправка нового файла через FormData
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             if (!fileInput.files[0]) return;
 
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            const file = fileInput.files[0];
+            formData.append('file', file);
 
             messageDiv.style.color = 'black';
             messageDiv.textContent = 'Loading...';
 
+
             try {
+                console.log("Uploading:", file.name);
+                console.log("Size:", file.size);
+                console.log("URL:", window.location.origin + '/api/upload');
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     headers: {
                         'Filename': file.name,
-                    }
-                    body: formData 
+                    },
+                    body: file 
                 });
 
                 const result = await response.json();
