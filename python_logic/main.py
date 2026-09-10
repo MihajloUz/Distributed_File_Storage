@@ -39,7 +39,7 @@ async def get_home_page(
 ):
     if session_id is None:
         return RedirectResponse(
-            url="/login",
+            url="/sign_up",
             status_code=status.HTTP_303_SEE_OTHER
         )
     return templates.TemplateResponse (
@@ -63,8 +63,7 @@ async def get_login_page(request: Request):
 
 @app.post("/api/sign_up")
 def sign_up_page(
-    email: EmailStr = Form(...),
-    password: str = Form(...)
+    data: UserAuth
 ):
     conn = None
     try:
@@ -72,7 +71,7 @@ def sign_up_page(
         cursor = conn.cursor()
 
         query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-        cursor.execute(query, (email, password)) # передаємо напряму email і password
+        cursor.execute(query, (data.email, data.password)) 
         conn.commit()
         cursor.close()
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -129,31 +128,32 @@ async def login_user(
         if conn:
             conn.close()
 
-#эндпоинт для аплоаду
 @app.post("/api/upload")
 async def upload_file(
-    file: UploadFile = File(...)
+    request: Request 
 ):
+    filename = request.headers.get("Filename")
+    cookie = request.headers.get("Cookie")
     try:
-        file_bytes = await file.read()
-        files = {
-            "file": (file.filename, file_bytes, file.content_type)
-        }
-
         async with httpx.AsyncClient() as client:
-            response = await client.post("http://rust:8001/upload", files=files)
-            
-        if response.status_code == 200:
-            return RedirectResponse(
-                url="/?success=upload_complete", 
-                status_code=status.HTTP_303_SEE_OTHER
+            response = await client.post(
+                "http://rust:8001/api/upload",
+                content=request.stream(),
+                headers={
+                    "Filename": filename or "",
+                    "Cookie": cookie or ""
+                }
             )
-        else:
-            return RedirectResponse(
-                url="/?error=rust_upload_failed", 
-                status_code=status.HTTP_303_SEE_OTHER
-            )
+        rust_data = response.json()
+        if not rust_data["success"]:
+            return rust_data # do something in case of ERROR
 
+        file_path = rust_data["full_path"]
+        print(file_path) # its returnign the full path now 
+        # the task is to append the file onto the main page as loaded one
+
+
+        return RedirectResponse(url="/login",status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
         print(f"Upload proxy error: {e}")
         return RedirectResponse(
@@ -161,7 +161,6 @@ async def upload_file(
             status_code=status.HTTP_303_SEE_OTHER
         )
 
-#уже есть аккаунт редирект
 @app.get("/redirect-to-login")
 async def redirect_to_login():
     return RedirectResponse(
