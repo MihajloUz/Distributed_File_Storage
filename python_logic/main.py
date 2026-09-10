@@ -131,8 +131,7 @@ async def login_user(
         if conn:
             conn.close()
 
-
-
+#эндпоинт для аплоаду
 @app.post("/api/upload")
 async def upload_file(
     file: UploadFile = File(...)
@@ -163,6 +162,15 @@ async def upload_file(
             url="/?error=server_error", 
             status_code=status.HTTP_303_SEE_OTHER
         )
+
+#уже есть аккаунт редирект
+@app.get("/redirect-to-login")
+async def redirect_to_login():
+    return RedirectResponse(
+        url="/login", 
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
 
 #@app.get("/rust")
 #async def get_rust_response():
