@@ -132,15 +132,15 @@ async def login_user(
 async def upload_file(
     request: Request 
 ):
-    filename = request.headers.get("Filename")
-    cookie = request.headers.get("Cookie")
+    filename = request.headers.get("Filename") # python sends the file name 
+    cookie = request.headers.get("Cookie") # and the cookie aswell
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "http://rust:8001/api/upload",
                 content=request.stream(),
                 headers={
-                    "Filename": filename or "",
+                    "Filename": filename or "", # in case of an empty file name rust would just name it as "Unnamed"
                     "Cookie": cookie or ""
                 }
             )
@@ -153,7 +153,8 @@ async def upload_file(
         # the task is to append the file onto the main page as loaded one
 
 
-        return RedirectResponse(url="/login",status_code=status.HTTP_303_SEE_OTHER)
+        # change that return to somethign that makes sens. Like generating of a div that would contain file name etc.
+        return RedirectResponse(url="/login",status_code=status.HTTP_303_SEE_OTHER) 
     except Exception as e:
         print(f"Upload proxy error: {e}")
         return RedirectResponse(
