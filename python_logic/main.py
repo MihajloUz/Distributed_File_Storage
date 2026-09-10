@@ -63,7 +63,8 @@ async def get_login_page(request: Request):
 
 @app.post("/api/sign_up")
 def sign_up_page(
-        data: UserAuth
+    email: EmailStr = Form(...),
+    password: str = Form(...)
 ):
     conn = None
     try:
@@ -71,13 +72,10 @@ def sign_up_page(
         cursor = conn.cursor()
 
         query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-        cursor.execute(query, (data.email, data.password))
-
+        cursor.execute(query, (email, password)) # передаємо напряму email і password
         conn.commit()
         cursor.close()
-
-        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
         if conn:
             conn.rollback()
