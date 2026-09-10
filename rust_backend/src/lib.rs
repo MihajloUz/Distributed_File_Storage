@@ -16,8 +16,10 @@ pub enum ServerError{
     Env(env::VarError),
     SerdeJson(serde_json::Error),
     Axum(axum::Error),
-
-    GeneralIo,
+    
+    Parsing,
+    NotFound,
+    UploadingFile,  
 }
 
 
@@ -45,8 +47,14 @@ impl fmt::Display for ServerError{
             ServerError::Axum(e) => {
                 write!(f, "{}", e)
             }
-            ServerError::GeneralIo => {
-                write!(f, "Error writing/reading a file")
+            ServerError::Parsing => {
+                write!(f, "Error parsing value")
+            }
+            ServerError::NotFound => {
+                write!(f, "Value not found")
+            }
+            ServerError::UploadingFile => {
+                write!(f, "Error uploading a file onto the server")
             }
         }
     }
@@ -61,7 +69,9 @@ impl IntoResponse for ServerError{
             ServerError::Env(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::SerdeJson(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::Axum(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ServerError::GeneralIo => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::Parsing => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::NotFound => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::UploadingFile => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status, self.to_string()).into_response()

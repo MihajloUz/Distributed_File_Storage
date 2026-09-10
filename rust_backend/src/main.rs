@@ -20,7 +20,7 @@ use axum::{
 use rust_backend::*;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
-use axum_extra::extract::cookie::{Cookie, CookieJar};
+use axum_extra::extract::cookie::CookieJar;
 use futures_util::StreamExt;  
 
 #[derive(Deserialize)]
@@ -65,19 +65,27 @@ async fn create_cookie(
     );
 }
 
+
+// here i should upload file ot the server based on the users id that
+// I get from session id and sessions table
+// then i upload file onto the server and return json about success
+// or failure
+// and add data about the file to table user_files
+
+
 async fn upload_on_server(
     jar: CookieJar,
     headers: HeaderMap,
     State(state): State<AppState>,
     body: Body
 
-) -> Result<impl IntoResponse, ServerError>{
+) -> Result<Json<serde_json::Value>, ServerError>{
     let filename = headers.get("Filename")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("Unnamed");
 
     if let Some(value) = get_cookie(&jar, "session_id"){
-        let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::GeneralIo)?;
+        let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::Parsing)?;
         
         let client = state.db.get().await?;
        
@@ -87,7 +95,7 @@ async fn upload_on_server(
         ).await?;
 
         let Some(row) = row else{
-            return Err(ServerError::GeneralIo); //refactor for real error
+            return Err(ServerError::Parsing);
         };
         
         let user_id: uuid::Uuid = row.get("user_id");
@@ -106,7 +114,7 @@ async fn upload_on_server(
             .truncate(true)
             .open(&path)
             .await
-            .map_err(ServerError::Io)?; //change later to
+            .map_err(ServerError::Io)?;
         
         while let Some(chunk_result) = stream.next().await{
             match chunk_result{
@@ -118,9 +126,19 @@ async fn upload_on_server(
                 },
             }
         }
-        Ok((StatusCode::OK, "Data uploaded successfully").into_response())
+        //db writing
+        let row = client.query_one(
+            "INSERT INTO user_files (user_id, file_name) VALUES ($1, $2)",
+            &[&user_id, &filename]
+        ).await;
+        Ok(
+            Json(serde_json::json!({
+                "success": true,
+                "full_path": format!("/app/user_data/{}/{}", user_id, filename)
+            })),
+        )
     }else{
-        Err(ServerError::GeneralIo)
+        Err(ServerError::UploadingFile)
     }
 }
 
@@ -184,4 +202,3 @@ async fn main() -> Result<(), ServerError>{
     axum::serve(listener, app).await?;
     Ok(())
 }
-
