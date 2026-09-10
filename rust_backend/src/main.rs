@@ -197,7 +197,7 @@ async fn main() -> Result<(), ServerError>{
     };
 
     let app = create_app(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8001").await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8001").await?;
 
     axum::serve(listener, app).await?;
     Ok(())
