@@ -63,7 +63,8 @@ async def get_login_page(request: Request):
 
 @app.post("/api/sign_up")
 def sign_up_page(
-        data: UserAuth
+    email: EmailStr = Form(...),
+    password: str = Form(...)
 ):
     conn = None
     try:
@@ -71,13 +72,10 @@ def sign_up_page(
         cursor = conn.cursor()
 
         query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-        cursor.execute(query, (data.email, data.password))
-
+        cursor.execute(query, (email, password)) # передаємо напряму email і password
         conn.commit()
         cursor.close()
-
-        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
         if conn:
             conn.rollback()
@@ -131,44 +129,46 @@ async def login_user(
         if conn:
             conn.close()
 
-# Константи для завантаження
-UPLOAD_DIR = "uploaded_files"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024
-
+#эндпоинт для аплоаду
 @app.post("/api/upload")
 async def upload_file(
     file: UploadFile = File(...)
 ):
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    total_bytes_written = 0
-
     try:
-        with open(file_path, "wb") as buffer:
-            while chunk := await file.read(1024 * 1024):
-                total_bytes_written += len(chunk)
-                if total_bytes_written > MAX_FILE_SIZE:
-                    buffer.close()
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    return RedirectResponse(
-                        url="/?error=file_too_large",
-                        status_code=status.HTTP_303_SEE_OTHER
-                    )
-                buffer.write(chunk)
+        file_bytes = await file.read()
+        files = {
+            "file": (file.filename, file_bytes, file.content_type)
+        }
 
-        return RedirectResponse(
-            url="/?success=upload_complete",
-            status_code=status.HTTP_303_SEE_OTHER
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post("http://rust:8001/upload", files=files)
+            
+        if response.status_code == 200:
+            return RedirectResponse(
+                url="/?success=upload_complete", 
+                status_code=status.HTTP_303_SEE_OTHER
+            )
+        else:
+            return RedirectResponse(
+                url="/?error=rust_upload_failed", 
+                status_code=status.HTTP_303_SEE_OTHER
+            )
+
     except Exception as e:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        print(f"Upload file: {e}")
+        print(f"Upload proxy error: {e}")
         return RedirectResponse(
-            url="/?error=upload_failed",
+            url="/?error=server_error", 
             status_code=status.HTTP_303_SEE_OTHER
         )
+
+#уже есть аккаунт редирект
+@app.get("/redirect-to-login")
+async def redirect_to_login():
+    return RedirectResponse(
+        url="/login", 
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
 
 #@app.get("/rust")
 #async def get_rust_response():
