@@ -3,7 +3,7 @@ import httpx
 import shutil
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File, Form, Cookie
+from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File, Form, Cookie, Response
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr
@@ -200,3 +200,40 @@ async def get_user_files(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error":"Failes to fetch files"}
         )
+
+
+
+
+@app.get("/api/files/{file_id}")
+async def download_file(
+        file_id: str,
+        session_id: str | None = Cookie(default=None)
+):
+    try:
+        async with httpx.AsyncClient() as client:
+            rust_response = await client.get(
+                f"http://rust:8001/api/files/{file_id}",
+                cookies={"session_id": session_id}
+            )
+        if rust_response.status_code != 200:
+            content={
+                "success": False,
+                "message": "Internal Server error" # change the error to smoething more coherent later
+            },
+            status_code=500
+        return Response(
+                content=rust_response.content,
+                status_code=rust_response.status_code,
+                headers={
+                    "Content-Type": rust_response.headers["Content-Type"],
+                    "Content-Disposition": rust_response.headers["Content-Disposition"],
+                }
+            )
+    except Exception as e:
+        print(f"Error proxying files request: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error":"Failes to fetch files"}
+        )
+
+

@@ -21,6 +21,7 @@ pub enum ServerError{
     Parsing,
     NotFound,
     NoCookie,  
+    ResponseCreation,  
 }
 
 
@@ -57,6 +58,9 @@ impl fmt::Display for ServerError{
             ServerError::NoCookie => {
                 write!(f, "Could not read a cookie")
             }
+            ServerError::ResponseCreation => {
+                write!(f, "Could not build a response")
+            }
         }
     }
 }
@@ -73,6 +77,7 @@ impl IntoResponse for ServerError{
             ServerError::Parsing => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::NotFound => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::NoCookie => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::ResponseCreation => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status, self.to_string()).into_response()
@@ -151,7 +156,6 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
     client.batch_execute(
         "
         CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
         CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             email TEXT NOT NULL UNIQUE,
@@ -164,7 +168,6 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
             file_name TEXT NOT NULL,
             uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
-
 
         CREATE TABLE IF NOT EXISTS sessions(
             user_id UUID NOT NULL REFERENCES users(id),

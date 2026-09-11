@@ -1,5 +1,3 @@
-use std::fs;
-
 use serde::Deserialize;
 use axum::{
     Router,
@@ -7,10 +5,13 @@ use axum::{
     extract::{
         State,
         Json,
+        Path,
     },
     http::{
         HeaderMap,
-        StatusCode
+        StatusCode,
+        Response,
+        header,
     },
     response::{
         IntoResponse,
@@ -21,6 +22,7 @@ use axum::{
     }, 
 };
 use rust_backend::*;
+use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use axum_extra::extract::cookie::CookieJar;
@@ -157,11 +159,33 @@ async fn get_from_server(
 async fn download_file(
     jar: CookieJar,
     State(state): State<AppState>,
+    Path(file_id): Path<uuid::Uuid>,
 ) -> Result<impl IntoResponse, ServerError>{
-    
-    let bytes = fs::read("/app/user_data/");
+     
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
+    let row = client.query_opt(
+        "SELECT file_name FROM user_files WHERE user_files.id = $1", 
+        &[&file_id]
+    ).await?;
 
-    Ok(())
+    let Some(row) = row else{
+        return Err(ServerError::Parsing);
+    };
+    let file_name: String = row.get("file_name");
+    let bytes = fs::read(format!("/app/user_data/{user_id}/{file_name}")).await?;
+    
+    let response = Response::builder()
+        .header(
+            header::CONTENT_TYPE,
+            "application/octet-stream",
+        )
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", file_name),
+        )
+        .body(Body::from(bytes))
+        .map_err(|_| ServerError::ResponseCreation)?; 
+    Ok(response)
 }
 
 
@@ -170,6 +194,7 @@ fn create_app(state: AppState) -> Router{
         .route("/login_successful", post(create_cookie)) 
         .route("/api/upload", post(post_on_server)) 
         .route("/api/files", get(get_from_server)) 
+        .route("/api/files/{file_id}", get(download_file)) 
         .with_state(state)
 }
 
