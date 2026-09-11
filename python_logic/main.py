@@ -39,7 +39,7 @@ async def get_home_page(
 ):
     if session_id is None:
         return RedirectResponse(
-            url="/sign_up",
+            url="/login",
             status_code=status.HTTP_303_SEE_OTHER
         )
     return templates.TemplateResponse (
@@ -60,10 +60,11 @@ async def get_login_page(request: Request):
             name="login_page.html" 
     )
 
-
+3
 @app.post("/api/sign_up")
 def sign_up_page(
-    data: UserAuth
+    email: EmailStr = Form(...),
+    password: str = Form(...)
 ):
     conn = None
     try:
@@ -71,7 +72,7 @@ def sign_up_page(
         cursor = conn.cursor()
 
         query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-        cursor.execute(query, (data.email, data.password)) 
+        cursor.execute(query, (email, password)) # передаємо напряму email і password
         conn.commit()
         cursor.close()
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -128,33 +129,31 @@ async def login_user(
         if conn:
             conn.close()
 
+#эндпоинт для аплоаду
 @app.post("/api/upload")
 async def upload_file(
-    request: Request 
+    file: UploadFile = File(...)
 ):
-    filename = request.headers.get("Filename") # python sends the file name 
-    cookie = request.headers.get("Cookie") # and the cookie aswell
     try:
+        file_bytes = await file.read()
+        files = {
+            "file": (file.filename, file_bytes, file.content_type)
+        }
+
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "http://rust:8001/api/upload",
-                content=request.stream(),
-                headers={
-                    "Filename": filename or "", # in case of an empty file name rust would just name it as "Unnamed"
-                    "Cookie": cookie or ""
-                }
+            response = await client.post("http://rust:8001/upload", files=files)
+            
+        if response.status_code == 200:
+            return RedirectResponse(
+                url="/?success=upload_complete", 
+                status_code=status.HTTP_303_SEE_OTHER
             )
-        rust_data = response.json()
-        if not rust_data["success"]:
-            return rust_data # do something in case of ERROR
+        else:
+            return RedirectResponse(
+                url="/?error=rust_upload_failed", 
+                status_code=status.HTTP_303_SEE_OTHER
+            )
 
-        file_path = rust_data["full_path"]
-        print(file_path) # its returnign the full path now 
-        # the task is to append the file onto the main page as loaded one
-
-
-        # change that return to somethign that makes sens. Like generating of a div that would contain file name etc.
-        return RedirectResponse(url="/login",status_code=status.HTTP_303_SEE_OTHER) 
     except Exception as e:
         print(f"Upload proxy error: {e}")
         return RedirectResponse(
@@ -162,6 +161,7 @@ async def upload_file(
             status_code=status.HTTP_303_SEE_OTHER
         )
 
+#уже есть аккаунт редирект
 @app.get("/redirect-to-login")
 async def redirect_to_login():
     return RedirectResponse(
@@ -169,14 +169,31 @@ async def redirect_to_login():
         status_code=status.HTTP_303_SEE_OTHER
     )
 
+@app.get("/api/files")
+async def get_user_files(
+    session_id: str | None = Cookie(default=None)
+):
+    if  not session_id:
+        return RedirectResponse(
+            url="/login",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+    try:
+        async with httpx.AsyncClient() as client:
+            rust_response = await client.get(
+                "http://rust:8001/api/files",
+                cookies={"session_id": session_id}
+            )
 
-#@app.get("/rust")
-#async def get_rust_response():
-#    async with httpx.AsyncClient() as client:
-#        response = await client.get("http://rust:8001/rust")
-#    return HTMLResponse(
-#        content=response.text,
-#        status_code=response.status_code
-#    )
-
-# later create the endpoint for talking with rust on user sending/reading files 
+        if rust_response.status_code != 200:
+            return RedirectResponse(
+                url="/login"
+                status_code=status.HTTP_303_SEE_OTHER
+            )
+        return JSONResponse(content=rust_response.json())
+    except Exception as e:
+        print(f"Error proxying files request: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error":"Failes to fetch files"}
+        )
