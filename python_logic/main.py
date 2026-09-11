@@ -187,7 +187,7 @@ async def get_user_files(
 
         if rust_response.status_code != 200:
             return RedirectResponse(
-                url="/login"
+                url="/login",
                 status_code=status.HTTP_303_SEE_OTHER
             )
         return JSONResponse(content=rust_response.json())
