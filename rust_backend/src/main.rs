@@ -1,3 +1,5 @@
+use std::fs;
+
 use serde::Deserialize;
 use axum::{
     Router,
@@ -86,59 +88,43 @@ async fn post_on_server(
     let filename = headers.get("Filename")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("Unnamed");
-    if let Some(value) = get_cookie(&jar, "session_id"){
-        let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::Parsing)?;
-        let client = state.db.get().await?;
-       
-        let row = client.query_opt(
-            "SELECT user_id FROM sessions WHERE sessions.session_id = $1",
-            &[&session_id]
-        ).await?;
+   
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
+    let mut stream = body.into_data_stream();   
 
-        let Some(row) = row else{
-            return Err(ServerError::Parsing);
-        };
-        
-        let user_id: uuid::Uuid = row.get("user_id");
+    let path = format!("/app/user_data/{}/{}", user_id, filename);
 
-        let mut stream = body.into_data_stream();   
-
-        let path = format!("/app/user_data/{}/{}", user_id, filename);
-
-        if let Some(parent) = std::path::Path::new(&path).parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(ServerError::Io)?;
-        }
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&path)
-            .await
-            .map_err(ServerError::Io)?;
-        
-        while let Some(chunk_result) = stream.next().await{
-            match chunk_result{
-                Ok(chunk) => {
-                    file.write_all(&chunk).await.map_err(ServerError::Io)?;                   
-                },
-                Err(e) => {
-                    return Err(ServerError::Axum(e));
-                },
-            }
-        }
-        let row = client.execute(
-            "INSERT INTO user_files (user_id, file_name) VALUES ($1, $2)",
-            &[&user_id, &filename]
-        ).await?;
-        Ok(
-            Json(serde_json::json!({
-                "success": true,
-            })),
-        )
-    }else{
-        Err(ServerError::NoCookie)
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(ServerError::Io)?;
     }
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&path)
+        .await
+        .map_err(ServerError::Io)?;
+    
+    while let Some(chunk_result) = stream.next().await{
+        match chunk_result{
+            Ok(chunk) => {
+                file.write_all(&chunk).await.map_err(ServerError::Io)?;                   
+            },
+            Err(e) => {
+                return Err(ServerError::Axum(e));
+            },
+        }
+    }
+    let row = client.execute(
+        "INSERT INTO user_files (user_id, file_name) VALUES ($1, $2)",
+        &[&user_id, &filename]
+    ).await?;
+    Ok(
+        Json(serde_json::json!({
+            "success": true,
+        })),
+    )
 }
 
 
@@ -148,42 +134,34 @@ async fn get_from_server(
     State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, ServerError>{
     
-    if let Some(value) = get_cookie(&jar, "session_id"){
-        let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::Parsing)?;
-        let client = state.db.get().await?;
-       
-        let row = client.query_opt(
-            "SELECT user_id FROM sessions WHERE sessions.session_id = $1",
-            &[&session_id]
-        ).await?;
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
+    let rows = client.query(
+        "SELECT id, file_name, uploaded_at FROM user_files WHERE user_files.user_id = $1", 
+        &[&user_id]
+    ).await?;
+    
+    let files: Vec<_> = rows.iter().map(|row| {
+        let id: uuid::Uuid= row.get("id");
+        let file_name: String = row.get("file_name");
+        let uploaded_at: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
+        serde_json::json!({
+            "id": id,
+            "file_name": file_name,
+            "uploaded_at": uploaded_at.to_rfc3339(),
+        })
+    }).collect();
 
-        let Some(row) = row else{
-            return Err(ServerError::Parsing);
-        };
-        
-        let user_id: uuid::Uuid = row.get("user_id");
-        
-        let rows = client.query(
-            "SELECT id, file_name, uploaded_at FROM user_files WHERE user_files.user_id = $1", 
-            &[&user_id]
-        ).await?;
-        
-        let files: Vec<_> = rows.iter().map(|row| {
-            let id: uuid::Uuid= row.get("id");
-            let file_name: String = row.get("file_name");
-            let uploaded_at: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
-            serde_json::json!({
-                "id": id,
-                "file_name": file_name,
-                "uploaded_at": uploaded_at.to_rfc3339(),
-            })
-        }).collect();
+    Ok(Json(serde_json::json!({"files": files})))
+}
 
-        Ok(Json(serde_json::json!({"files": files})))
-    }
-    else{
-        Err(ServerError::NoCookie)
-    }
+async fn download_file(
+    jar: CookieJar,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, ServerError>{
+    
+    let bytes = fs::read("/app/user_data/");
+
+    Ok(())
 }
 
 

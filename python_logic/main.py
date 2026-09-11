@@ -190,9 +190,9 @@ async def get_user_files(
         if rust_response.status_code != 200:
             content={
                 "success": False,
-                "message": "Error" # change the error to smoething more coherent later
+                "message": "Internal Server error" # change the error to smoething more coherent later
             },
-            status_code=404
+            status_code=500
         return JSONResponse(content=rust_response.json())
     except Exception as e:
         print(f"Error proxying files request: {e}")
