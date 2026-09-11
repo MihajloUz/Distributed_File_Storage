@@ -75,7 +75,7 @@ async fn create_cookie(
 
 
 // now it reutrn json correctly 
-async fn upload_on_server(
+async fn post_on_server(
     jar: CookieJar,
     headers: HeaderMap,
     State(state): State<AppState>,
@@ -133,18 +133,64 @@ async fn upload_on_server(
         Ok(
             Json(serde_json::json!({
                 "success": true,
-                "full_path": format!("/app/user_data/{}/{}", user_id, filename)
             })),
         )
     }else{
-        Err(ServerError::UploadingFile)
+        Err(ServerError::NoCookie)
     }
 }
+
+
+
+async fn get_from_server(
+    jar: CookieJar,
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, ServerError>{
+    
+    if let Some(value) = get_cookie(&jar, "session_id"){
+        let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::Parsing)?;
+        let client = state.db.get().await?;
+       
+        let row = client.query_opt(
+            "SELECT user_id FROM sessions WHERE sessions.session_id = $1",
+            &[&session_id]
+        ).await?;
+
+        let Some(row) = row else{
+            return Err(ServerError::Parsing);
+        };
+        
+        let user_id: uuid::Uuid = row.get("user_id");
+        
+        let rows = client.query(
+            "SELECT id, file_name, uploaded_at FROM user_files WHERE user_files.user_id = $1", 
+            &[&user_id]
+        ).await?;
+        
+        let files: Vec<_> = rows.iter().map(|row| {
+            let id: uuid::Uuid= row.get("id");
+            let file_name: String = row.get("file_name");
+            let uploaded_at: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
+            serde_json::json!({
+                "id": id,
+                "file_name": file_name,
+                "uploaded_at": uploaded_at.to_rfc3339(),
+            })
+        }).collect();
+
+        Ok(Json(serde_json::json!({"files": files})))
+    }
+    else{
+        Err(ServerError::NoCookie)
+    }
+}
+
 
 fn create_app(state: AppState) -> Router{
     Router::new()
         .route("/login_successful", post(create_cookie)) 
-        .route("/api/upload", post(upload_on_server)) 
+        .route("/api/upload", post(post_on_server)) 
+        .route("/api/files", post(get_from_server)) 
         .with_state(state)
 }
 

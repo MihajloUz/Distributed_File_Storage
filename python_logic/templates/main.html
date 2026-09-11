@@ -60,7 +60,7 @@
                     const li = document.createElement('li');
                     li.innerHTML = `
                         <div>
-                            <a href="/api/files/${file.id}" target="_blank">${file.filename}</a>
+                            <a href="/api/files/${file.id}" target="_blank">${file.file_name}</a>
                             <div class="date">${file.uploaded_at}</div>
                         </div>
                     `;
@@ -120,32 +120,6 @@
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-async function loadFilesList() {
-    try {
-        const response = await fetch('/api/files');
-        const data = await response.json();
-        filesList.innerHTML = '';
-
-        if (data.files.length === 0) {
-            filesList.innerHTML = "<li>The files haven't been uploaded yet</li>";
-            return;
-        }
-
-        data.files.forEach(file => {
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <div>
-                    <a href="/api/files/${file.id}" target="_blank">${file.filename}</a>
-                    <div class="date">${file.uploaded_at} | ${formatBytes(file.file_size)}</div>
-                </div>
-            `;
-            filesList.appendChild(li);
-        });
-    } catch (error) {
-        console.error("Error:", error);
-    }
 }
     </script>
 

@@ -19,7 +19,7 @@ pub enum ServerError{
     
     Parsing,
     NotFound,
-    UploadingFile,  
+    NoCookie,  
 }
 
 
@@ -53,8 +53,8 @@ impl fmt::Display for ServerError{
             ServerError::NotFound => {
                 write!(f, "Value not found")
             }
-            ServerError::UploadingFile => {
-                write!(f, "Error uploading a file onto the server")
+            ServerError::NoCookie => {
+                write!(f, "Could not read a cookie")
             }
         }
     }
@@ -71,7 +71,7 @@ impl IntoResponse for ServerError{
             ServerError::Axum(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::Parsing => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::NotFound => StatusCode::INTERNAL_SERVER_ERROR,
-            ServerError::UploadingFile => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::NoCookie => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status, self.to_string()).into_response()
@@ -158,8 +158,10 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
         );
         
         CREATE TABLE IF NOT EXISTS user_files(
+            id UUID NOT NULL DEFAULT get_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id),
-            file_name TEXT NOT NULL 
+            file_name TEXT NOT NULL,
+            uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 
 
