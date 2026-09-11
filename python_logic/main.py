@@ -19,11 +19,6 @@ class UserAuth(BaseModel):
     password: str
 
 def get_db_connection():
-    print("HOST:", os.getenv("POSTGRES_HOST"))
-    print("PORT:", os.getenv("POSTGRES_PORT"))
-    print("USER:", os.getenv("POSTGRES_USER"))
-    print("DB:", os.getenv("POSTGRES_DB"))
-
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "localhost"),
         user=os.getenv("POSTGRES_USER", "postgres"),
@@ -39,7 +34,7 @@ async def get_home_page(
 ):
     if session_id is None:
         return RedirectResponse(
-            url="/login",
+            url="/sign_up",
             status_code=status.HTTP_303_SEE_OTHER
         )
     return templates.TemplateResponse (
@@ -63,8 +58,7 @@ async def get_login_page(request: Request):
 3
 @app.post("/api/sign_up")
 def sign_up_page(
-    email: EmailStr = Form(...),
-    password: str = Form(...)
+    data: UserAuth
 ):
     conn = None
     try:
@@ -72,7 +66,7 @@ def sign_up_page(
         cursor = conn.cursor()
 
         query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-        cursor.execute(query, (email, password)) # передаємо напряму email і password
+        cursor.execute(query, (data.email, data.password))
         conn.commit()
         cursor.close()
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -177,10 +171,13 @@ async def redirect_to_login():
 async def get_user_files(
     session_id: str | None = Cookie(default=None)
 ):
-    if  not session_id:
-        return RedirectResponse(
-            url="/login",
-            status_code=status.HTTP_303_SEE_OTHER
+    if not session_id:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Not authenticated"
+            },
+            status_code=401
         )
     try:
         async with httpx.AsyncClient() as client:
@@ -189,11 +186,13 @@ async def get_user_files(
                 cookies={"session_id": session_id}
             )
 
+
         if rust_response.status_code != 200:
-            return RedirectResponse(
-                url="/login",
-                status_code=status.HTTP_303_SEE_OTHER
-            )
+            content={
+                "success": False,
+                "message": "Error" # change the error to smoething more coherent later
+            },
+            status_code=404
         return JSONResponse(content=rust_response.json())
     except Exception as e:
         print(f"Error proxying files request: {e}")
