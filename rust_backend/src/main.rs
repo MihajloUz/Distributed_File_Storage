@@ -14,6 +14,7 @@ use axum::{
         IntoResponse,
     },
     routing::{
+        get, 
         post
     }, 
 };
@@ -190,7 +191,7 @@ fn create_app(state: AppState) -> Router{
     Router::new()
         .route("/login_successful", post(create_cookie)) 
         .route("/api/upload", post(post_on_server)) 
-        .route("/api/files", post(get_from_server)) 
+        .route("/api/files", get(get_from_server)) 
         .with_state(state)
 }
 

@@ -48,7 +48,7 @@
             try {
                 const response = await fetch('/api/files');
                 const data = await response.json();
-
+                console.log(data)
                 filesList.innerHTML = '';
 
                 if (data.files.length === 0) {
@@ -58,6 +58,7 @@
 
                 data.files.forEach(file => {
                     const li = document.createElement('li');
+
                     li.innerHTML = `
                         <div>
                             <a href="/api/files/${file.id}" target="_blank">${file.file_name}</a>
@@ -102,6 +103,7 @@
                     messageDiv.style.color = 'green';
                     messageDiv.textContent = result.message;
                     fileInput.value = ''; 
+                    console.log("SUCCESSFUL UPLOAD. TRYING TO LOAD FILES FRO MTHE SERVER");
                     loadFilesList(); 
                 } else {
                     messageDiv.style.color = 'red';

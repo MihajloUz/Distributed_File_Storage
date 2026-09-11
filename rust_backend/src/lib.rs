@@ -158,7 +158,7 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
         );
         
         CREATE TABLE IF NOT EXISTS user_files(
-            id UUID NOT NULL DEFAULT get_random_uuid(),
+            id UUID NOT NULL DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id),
             file_name TEXT NOT NULL,
             uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
