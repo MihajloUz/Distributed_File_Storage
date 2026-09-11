@@ -86,9 +86,6 @@
 
 
             try {
-                console.log("Uploading:", file.name);
-                console.log("Size:", file.size);
-                console.log("URL:", window.location.origin + '/api/upload');
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     headers: {

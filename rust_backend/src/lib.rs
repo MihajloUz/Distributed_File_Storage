@@ -1,5 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse};
 use axum_extra::extract::cookie::CookieJar;
+use axum::extract::State;
 use std::{fmt, env};
 use deadpool_postgres::{
     Config, 
@@ -20,6 +21,7 @@ pub enum ServerError{
     Parsing,
     NotFound,
     NoCookie,  
+    ResponseCreation,  
 }
 
 
@@ -56,6 +58,9 @@ impl fmt::Display for ServerError{
             ServerError::NoCookie => {
                 write!(f, "Could not read a cookie")
             }
+            ServerError::ResponseCreation => {
+                write!(f, "Could not build a response")
+            }
         }
     }
 }
@@ -72,6 +77,7 @@ impl IntoResponse for ServerError{
             ServerError::Parsing => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::NotFound => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::NoCookie => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::ResponseCreation => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status, self.to_string()).into_response()
@@ -150,7 +156,6 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
     client.batch_execute(
         "
         CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
         CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             email TEXT NOT NULL UNIQUE,
@@ -163,7 +168,6 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
             file_name TEXT NOT NULL,
             uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
-
 
         CREATE TABLE IF NOT EXISTS sessions(
             user_id UUID NOT NULL REFERENCES users(id),
@@ -178,4 +182,34 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
 
 pub fn get_cookie(jar: &CookieJar, cookie_name: &str) -> Option<String> {
     jar.get(cookie_name).map(|cookie| cookie.value().to_string())
+}
+
+fn session_cookie_check(
+    jar: CookieJar,
+) ->Result<String, ServerError>{
+    match get_cookie(&jar, "session_id"){
+        Some(value) => Ok(value),
+        None => Err(ServerError::NoCookie),
+    }
+}
+
+pub async fn get_user_id_from_cookie(
+    jar: CookieJar,
+    State(state): State<AppState>,
+) -> Result<(deadpool_postgres::Object, uuid::Uuid), ServerError> { 
+    let value = session_cookie_check(jar)?;
+    let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::Parsing)?;
+    let client = state.db.get().await?;
+   
+    let row = client.query_opt(
+        "SELECT user_id FROM sessions WHERE sessions.session_id = $1",
+        &[&session_id]
+    ).await?;
+
+    let Some(row) = row else{
+        return Err(ServerError::Parsing);
+    };
+    
+    let user_id: uuid::Uuid = row.get("user_id");
+    Ok((client, user_id))
 }
