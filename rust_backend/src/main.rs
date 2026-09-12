@@ -154,12 +154,16 @@ async fn get_from_server(
 
         if let Some(value) = extension {
             match value {
-                "mp4" | "mov" | "avi" => {
+                "mp4" | "mov" | "avi" | "mkv" => {
                     icon_type = "video";
                 },
                 "jpg" | "png" | "webp" | "jpeg" => {
                     icon_type = "image";
                 },
+                "ogg" | "mp3" | "m4a" | "oga" | "wav" => {
+                    icon_type = "audio";
+                },
+
                 "txt" => {
                     icon_type = "text"
                 },
