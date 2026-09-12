@@ -145,11 +145,44 @@ async fn get_from_server(
     let files: Vec<_> = rows.iter().map(|row| {
         let id: uuid::Uuid= row.get("id");
         let file_name: String = row.get("file_name");
-        let uploaded_at: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
+        let uploaded_at_full: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
+        
+        let uploaded_at: String = uploaded_at_full.format("%d %b %Y").to_string();
+
+        let extension = file_name.split(".").last();
+        let icon_type: &str;
+
+        if let Some(value) = extension {
+            match value {
+                "mp4" | "mov" | "avi" | "mkv" => {
+                    icon_type = "video";
+                },
+                "jpg" | "png" | "webp" | "jpeg" => {
+                    icon_type = "image";
+                },
+                "ogg" | "mp3" | "m4a" | "oga" | "wav" => {
+                    icon_type = "audio";
+                },
+
+                "txt" => {
+                    icon_type = "text"
+                },
+                "md" => {
+                    icon_type = "markdown"
+                },
+                _ => {
+                    icon_type = "file";
+                }
+            }
+        }else{
+            icon_type = "file"; // no extension file 
+        }
+
         serde_json::json!({
             "id": id,
             "file_name": file_name,
-            "uploaded_at": uploaded_at.to_rfc3339(),
+            "uploaded_at": uploaded_at,
+            "icon_type": icon_type
         })
     }).collect();
 
