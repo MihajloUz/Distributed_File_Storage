@@ -3,14 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Login</title>
-    <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        form { display: flex; flex-direction: column; width: 300px; gap: 10px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-        input { padding: 8px; font-size: 14px; }
-        button { padding: 10px; background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        #message { margin-top: 10px; font-size: 14px; text-align: center; }
-    </style>
+<link rel="stylesheet" href="/static/login.css">
 </head>
 <body>
 
@@ -21,52 +14,7 @@
         <button type="submit">Login</button>
         <div id="message"></div>
     </form>
-
-    <script>
-        const form = document.getElementById('loginForm');
-        const messageDiv = document.getElementById('message');
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault(); 
-
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            messageDiv.style.color = 'black';
-            messageDiv.textContent = 'Verification..';
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        email: username, 
-                        password: password 
-                    })
-                });
-
-                if (response.redirected) {
-                    window.location.href = response.url;
-                    return;
-                }
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageDiv.style.color = 'green';
-                    messageDiv.textContent = data.message;
-                } else {
-                    messageDiv.style.color = 'red';
-                    messageDiv.textContent = data.detail || 'Authentication';
-                }
-            } catch (error) {
-                messageDiv.style.color = 'red';
-                messageDiv.textContent = 'No server connection';
-            }
-        });
-        
-    </script>
+    <script src="/static/login.js"></script>
 
 </body>
 </html>
