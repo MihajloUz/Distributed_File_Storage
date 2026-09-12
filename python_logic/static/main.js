@@ -3,7 +3,6 @@ const uploadForm = document.getElementById('uploadForm');
         const messageDiv = document.getElementById('message');
         const filesList = document.getElementById('filesList');
 
-        //функция загрузки и отображения списка файлов
         async function loadFilesList() {
             try {
                 const response = await fetch('/api/files');
@@ -21,6 +20,7 @@ const uploadForm = document.getElementById('uploadForm');
 
                     li.innerHTML = `
                         <div>
+                            <img src="/static/icons/${file.icon_type}.svg">
                             <a href="/api/files/${file.id}" target="_blank">${file.file_name}</a>
                             <div class="date">${file.uploaded_at}</div>
                         </div>

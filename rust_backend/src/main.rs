@@ -146,10 +146,37 @@ async fn get_from_server(
         let id: uuid::Uuid= row.get("id");
         let file_name: String = row.get("file_name");
         let uploaded_at: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
+        
+        let extension = file_name.split(".").last();
+        let icon_type: &str;
+
+        if let Some(value) = extension {
+            match value {
+                "mp4" | "mov" | "avi" => {
+                    icon_type = "video";
+                },
+                "jpg" | "png" | "webp" | "jpeg" => {
+                    icon_type = "image";
+                },
+                "txt" => {
+                    icon_type = "text"
+                },
+                "md" => {
+                    icon_type = "markdown"
+                },
+                _ => {
+                    icon_type = "file";
+                }
+            }
+        }else{
+            icon_type = "file"; // no extension file 
+        }
+
         serde_json::json!({
             "id": id,
             "file_name": file_name,
             "uploaded_at": uploaded_at.to_rfc3339(),
+            "icon_type": icon_type
         })
     }).collect();
 
