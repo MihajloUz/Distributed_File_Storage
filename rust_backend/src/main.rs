@@ -1,3 +1,4 @@
+use rand::RngExt;
 use serde::Deserialize;
 use axum::{
     Router,
@@ -27,10 +28,63 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use axum_extra::extract::cookie::CookieJar;
 use futures_util::StreamExt;  
+use lettre::{
+    address::AddressError,
+    Message,
+    AsyncSmtpTransport,
+    AsyncTransport, 
+    Tokio1Executor,
+    transport::smtp::authentication::Credentials
+};
 
 #[derive(Deserialize)]
 struct UserJson{
     email: String,
+}
+
+async fn sending_verification_email(email: &str) 
+    -> Result<(), ServerError>{
+
+    let verification_code = rand::rng().random_range(100000..999999);
+
+    let msg = format!(
+        r#"
+            <html>
+                <body>
+                    <h2>Please verify your email</h2>
+                    <h1>{}</h1>
+                    <p>:)</p>
+                </body>
+            </html>
+        "#,
+        verification_code
+    );
+
+    let credentials = Credentials::new(
+        std::env::var("SERVER_EMAIL")?,
+        std::env::var("EMAIL_PASSWORD")?
+    );
+
+    let email = Message::builder()
+        .from(std::env::var("SERVER_EMAIL")?
+            .parse()
+            .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?
+        )
+        .to(email
+            .parse()
+            .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?
+        )
+        .subject("Verification of the email")
+        .header(lettre::message::header::ContentType::TEXT_HTML)
+        .body(msg)?;
+
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay(
+        "smtp.gmail.com"
+    )?.credentials(credentials).build();
+
+    mailer.send(email).await?;
+    println!("sent");
+    Ok(()) 
 }
 
 async fn create_cookie(
@@ -52,6 +106,7 @@ async fn create_cookie(
             })),
         );
     };
+
 
     let user_id: uuid::Uuid = row.get("id");
 
@@ -271,6 +326,8 @@ async fn main() -> Result<(), ServerError>{
         }
     });
 
+    sending_verification_email("mihajlouzkivvvv@gmail.com").await?;
+
     let pool = create_pool()?;
     setting_up_db(&pool).await?;
 
@@ -282,5 +339,7 @@ async fn main() -> Result<(), ServerError>{
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8001").await?;
 
     axum::serve(listener, app).await?;
+
+
     Ok(())
 }
