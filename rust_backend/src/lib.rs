@@ -7,6 +7,7 @@ use deadpool_postgres::{
     Runtime, 
 };
 
+use lettre::address::AddressError;
 
 #[derive(Debug)]
 pub enum ServerError{
@@ -17,6 +18,8 @@ pub enum ServerError{
     Env(env::VarError),
     SerdeJson(serde_json::Error),
     Axum(axum::Error),
+    Lettre(lettre::error::Error),
+    Smtp(String),
     
     Parsing,
     NotFound,
@@ -49,6 +52,12 @@ impl fmt::Display for ServerError{
             ServerError::Axum(e) => {
                 write!(f, "{}", e)
             }
+            ServerError::Lettre(e) => {
+                write!(f, "{}", e)
+            }
+            ServerError::Smtp(e) => {
+                write!(f, "{}", e)
+            }
             ServerError::Parsing => {
                 write!(f, "Error parsing value")
             }
@@ -74,6 +83,8 @@ impl IntoResponse for ServerError{
             ServerError::Env(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::SerdeJson(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::Axum(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::Lettre(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::Smtp(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::Parsing => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::NotFound => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::NoCookie => StatusCode::INTERNAL_SERVER_ERROR,
@@ -126,6 +137,19 @@ impl From<axum::Error> for ServerError{
         ServerError::Axum(e) 
     }
 }
+
+impl From<lettre::error::Error> for ServerError{
+    fn from(e: lettre::error::Error) -> Self {
+        ServerError::Lettre(e) 
+    }
+}
+
+impl From<lettre::transport::smtp::Error> for ServerError{
+    fn from(e: lettre::transport::smtp::Error) -> Self {
+        ServerError::Smtp(e.to_string())
+    }
+}
+
 
 
 impl std::error::Error for ServerError{}
