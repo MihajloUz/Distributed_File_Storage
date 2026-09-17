@@ -200,8 +200,9 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
         );
 
         CREATE TABLE IF NOT EXISTS email_verification(
-            email TEXT NOT NULL,
-            verification_code TEXT NOT NULL
+            email TEXT NOT NULL UNIQUE,
+            verification_code INTEGER NOT NULL,
+            verified BOOLEAN DEFAULT FALSE
         );
         "
     ).await?;

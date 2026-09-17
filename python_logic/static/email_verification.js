@@ -1,4 +1,6 @@
 const form = document.getElementById('verification_form');
+const params = new URLSearchParams(window.location.search);
+const email = params.get("email");
 
 form.addEventListener('submit', async (e) => {
     e.preventDefault(); 
@@ -6,13 +8,13 @@ form.addEventListener('submit', async (e) => {
     const code = document.getElementById('verification_code').value;
 
     try {
-        const response = await fetch('/api/email_verification', {
+        const response = await fetch(`/api/email_verification?email=${encodeURIComponent(email)}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
-                verification_code: verification_code
+                verification_code: code
             })
         });
 
@@ -26,3 +28,4 @@ form.addEventListener('submit', async (e) => {
         //todo
     }
 });
+ 

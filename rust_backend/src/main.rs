@@ -42,7 +42,9 @@ struct UserJson{
     email: String,
 }
 
-async fn sending_verification_email(email: &str) 
+async fn sending_verification_email(
+    Json(data): Json<UserJson> 
+    ) 
     -> Result<Json<serde_json::Value>, ServerError>{
 
     let verification_code = rand::rng().random_range(100000..999999);
@@ -64,13 +66,14 @@ async fn sending_verification_email(email: &str)
         std::env::var("SERVER_EMAIL")?,
         std::env::var("EMAIL_PASSWORD")?
     );
+    println!("{}", data.email);
 
     let email = Message::builder()
         .from(std::env::var("SERVER_EMAIL")?
             .parse()
             .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?
         )
-        .to(email
+        .to(data.email
             .parse()
             .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?
         )
@@ -286,7 +289,7 @@ fn create_app(state: AppState) -> Router{
         .route("/api/upload", post(post_on_server)) 
         .route("/api/files", get(get_from_server)) 
         .route("/api/files/{file_id}", get(download_file)) 
-        .route("/api/email_verification", get(download_file)) 
+        .route("/api/email_verification", post(sending_verification_email))
         .with_state(state)
 }
 
@@ -329,8 +332,6 @@ async fn main() -> Result<(), ServerError>{
             eprintln!("Error connecting to db: {}", e);
         }
     });
-
-    sending_verification_email("mihajlouzkivvvv@gmail.com").await?;
 
     let pool = create_pool()?;
     setting_up_db(&pool).await?;
