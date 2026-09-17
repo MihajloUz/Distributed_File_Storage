@@ -198,6 +198,11 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
             session_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
             expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days'
         );
+
+        CREATE TABLE IF NOT EXISTS email_verification(
+            email TEXT NOT NULL,
+            verification_code TEXT NOT NULL
+        );
         "
     ).await?;
 

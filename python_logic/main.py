@@ -20,6 +20,9 @@ class UserAuth(BaseModel):
     email: EmailStr
     password: str
 
+class EmailCode(BaseModel):
+    code: int;
+
 def get_db_connection():
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "localhost"),
@@ -56,10 +59,15 @@ async def get_login_page(request: Request):
             request=request, 
             name="login_page.html" 
     )
+@app.get("/email_verification", response_class=HTMLResponse)
+async def get_email_verification_page(request: Request):
+    return templates.TemplateResponse (
+            request=request, 
+            name="email_verification.html" 
+    )
 
-3
 @app.post("/api/sign_up")
-def sign_up_page(
+async def sign_up_page(
     data: UserAuth
 ):
     conn = None
@@ -70,8 +78,17 @@ def sign_up_page(
         query = "INSERT INTO users (email, password) VALUES (%s, %s)"
         cursor.execute(query, (data.email, data.password))
         conn.commit()
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post("http://rust:8001/api/email_verification")
+        rust_data = response.json()
+
+        query = "INSERT INTO email_verification (email, verification_code) VALUES (%s, %s)"
+        cursor.execute(query, (data.email, rust_data["verification_code"]))
+        conn.commit()
+
         cursor.close()
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=f"/email_verification?email={data.email}", status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
         if conn:
             conn.rollback()
@@ -79,6 +96,39 @@ def sign_up_page(
     finally:
         if conn:
             conn.close()
+
+
+@app.post("/api/email_verification")
+async def email_verification(
+    data: EmailCode,
+    email: EmailStr
+):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = "SELECT verification_code FROM email_verification WHERE email_verification.email = %s"
+        cursor.execute(query, (email, ))
+        result = cursor.fetchone()
+
+        if result is not None and data.code == result[0]:
+            return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+            cursor.close()
+        else:
+            query = "DELETE FROM users WHERE email = %s";
+            cursor.execute(query, (email, ))
+
+        cursor.close()
+        return RedirectResponse(url="/sign_up", status_code=status.HTTP_303_SEE_OTHER)
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return RedirectResponse(url="/sign_up?error=db_error", status_code=status.HTTP_303_SEE_OTHER)
+    finally:
+        if conn:
+            conn.close()
+
 
 @app.post("/api/login")
 async def login_user(

@@ -43,7 +43,7 @@ struct UserJson{
 }
 
 async fn sending_verification_email(email: &str) 
-    -> Result<(), ServerError>{
+    -> Result<Json<serde_json::Value>, ServerError>{
 
     let verification_code = rand::rng().random_range(100000..999999);
 
@@ -83,8 +83,11 @@ async fn sending_verification_email(email: &str)
     )?.credentials(credentials).build();
 
     mailer.send(email).await?;
-    println!("sent");
-    Ok(()) 
+    return Ok(
+        Json(serde_json::json!({
+            "verification_code": verification_code
+        })),
+    );
 }
 
 async fn create_cookie(
@@ -283,6 +286,7 @@ fn create_app(state: AppState) -> Router{
         .route("/api/upload", post(post_on_server)) 
         .route("/api/files", get(get_from_server)) 
         .route("/api/files/{file_id}", get(download_file)) 
+        .route("/api/email_verification", get(download_file)) 
         .with_state(state)
 }
 
