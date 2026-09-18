@@ -66,6 +66,14 @@ async def get_email_verification_page(request: Request):
             name="email_verification.html" 
     )
 
+@app.get("/view/{file_id}", response_class=HTMLResponse)
+async def view_file_page (request: Request, file_id: str):
+    return templates.TemplateResponse (
+            request=request, 
+            name="txt.html",
+            context = {"file_id": str(file_id)}
+    )
+
 @app.post("/api/sign_up")
 async def sign_up_page(
     data: UserAuth
@@ -98,8 +106,6 @@ async def sign_up_page(
             conn.commit()
 
             return RedirectResponse(url=f"/email_verification?email={data.email}", status_code=status.HTTP_303_SEE_OTHER)
-
-
         
     except Exception as e:
         if conn:
@@ -229,6 +235,7 @@ async def redirect_to_login():
         status_code=status.HTTP_303_SEE_OTHER
     )
 
+
 @app.get("/api/files")
 async def get_user_files(
     session_id: str | None = Cookie(default=None)
@@ -263,8 +270,6 @@ async def get_user_files(
             content={"error":"Failes to fetch files"}
         )
 
-
-
 @app.get("/api/files/{file_id}")
 async def download_file(
         file_id: str,
@@ -290,6 +295,68 @@ async def download_file(
                     "Content-Disposition": rust_response.headers["Content-Disposition"],
                 }
             )
+    except Exception as e:
+        print(f"Error proxying files request: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error":"Failes to fetch files"}
+        )
+
+
+
+@app.get("/api/view/{file_id}")
+async def view( #remake to be universal with switch( which is 'match' in python ))
+        file_id: str,
+        session_id: str | None = Cookie(default=None)
+):
+    conn = None
+    try:
+        async with httpx.AsyncClient() as client:
+            rust_response = await client.get(
+                f"http://rust:8001/api/files/{file_id}",
+                cookies={"session_id": session_id}
+            )
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        query = "SELECT file_name FROM user_files WHERE user_files.id = %s"
+        cursor.execute(query, (file_id, ))
+        result = cursor.fetchone()
+        if result is None:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "File not found"}
+            )
+        # add match for each file format 
+
+        filename = result[0]
+        extension = filename.rsplit(".", 1)[-1].lower()
+
+        print(extension)
+        match extension:
+            case "mp4" | "mov" | "avi" | "mkv":
+                pass
+
+            case "jpg" | "png" | "webp" | "jpeg":
+                pass
+
+            case "ogg" | "mp3" | "m4a" | "oga" | "wav":
+                pass
+
+            case "txt":
+                content = rust_response.content.decode("utf-8")
+                return Response(
+                    content=content,
+                    media_type="text/plain"
+                )
+
+            case "md":
+                pass
+
+            case _:
+                pass
+
+        
     except Exception as e:
         print(f"Error proxying files request: {e}")
         return JSONResponse(
