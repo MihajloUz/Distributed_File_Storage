@@ -66,6 +66,14 @@ async def get_email_verification_page(request: Request):
             name="email_verification.html" 
     )
 
+@app.get("/view/{file_id}", response_class=HTMLResponse)
+async def view_file_page (request: Request, file_id: str):
+    return templates.TemplateResponse (
+            request=request, 
+            name="txt.html",
+            context = {"file_id": str(file_id)}
+    )
+
 @app.post("/api/sign_up")
 async def sign_up_page(
     data: UserAuth
@@ -98,8 +106,6 @@ async def sign_up_page(
             conn.commit()
 
             return RedirectResponse(url=f"/email_verification?email={data.email}", status_code=status.HTTP_303_SEE_OTHER)
-
-
         
     except Exception as e:
         if conn:
@@ -192,7 +198,7 @@ async def upload_file(
 ):
     filename = request.headers.get("Filename") # python sends the file name 
     cookie = request.headers.get("Cookie") # and the cookie aswell
-    try:
+    trrust_response[]:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "http://rust:8001/api/upload",
@@ -255,6 +261,14 @@ async def get_user_files(
                 "message": "Internal Server error" # change the error to smoething more coherent later
             },
             status_code=500
+
+        rust_data = rust_response.json();
+
+        return RedirectResponse(
+            url=f"/view/{rust_data["id"]}",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+
         return JSONResponse(content=rust_response.json())
     except Exception as e:
         print(f"Error proxying files request: {e}")
@@ -290,6 +304,33 @@ async def download_file(
                     "Content-Disposition": rust_response.headers["Content-Disposition"],
                 }
             )
+    except Exception as e:
+        print(f"Error proxying files request: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error":"Failes to fetch files"}
+        )
+
+
+class FileRequest(BaseModel):
+    file_id: str
+
+@app.post("/api/view/")
+async def download_file( #rename
+        data: FileRequest,
+        session_id: str | None = Cookie(default=None)
+):
+    conn = None
+    try:
+        # query db for user id and file name WHERE the file id 
+        #/app/user_data/{user_id}/{file_name}
+        # or maybe remake the rust :253 download_file to return file data
+        with open(f"/app/user_data/{data.file_id}", "r", encoding="utf-8") as file:
+            content = file.read()
+        return Response(
+            content=content,
+            media_type="text/plain"
+        )
     except Exception as e:
         print(f"Error proxying files request: {e}")
         return JSONResponse(

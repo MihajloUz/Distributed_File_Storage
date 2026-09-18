@@ -211,39 +211,39 @@ async fn get_from_server(
         let uploaded_at: String = uploaded_at_full.format("%d %b %Y").to_string();
 
         let extension = file_name.split(".").last();
-        let icon_type: &str;
+        let file_type: &str;
 
         if let Some(value) = extension {
             match value {
                 "mp4" | "mov" | "avi" | "mkv" => {
-                    icon_type = "video";
+                    file_type = "video";
                 },
                 "jpg" | "png" | "webp" | "jpeg" => {
-                    icon_type = "image";
+                    file_type = "image";
                 },
                 "ogg" | "mp3" | "m4a" | "oga" | "wav" => {
-                    icon_type = "audio";
+                    file_type = "audio";
                 },
 
                 "txt" => {
-                    icon_type = "text"
+                    file_type = "text"
                 },
                 "md" => {
-                    icon_type = "markdown"
+                    file_type = "markdown"
                 },
                 _ => {
-                    icon_type = "file";
+                    file_type = "file";
                 }
             }
         }else{
-            icon_type = "file"; // no extension file 
+            file_type = "file"; // no extension file 
         }
 
         serde_json::json!({
             "id": id,
             "file_name": file_name,
             "uploaded_at": uploaded_at,
-            "icon_type": icon_type
+            "file_type": file_type
         })
     }).collect();
 
