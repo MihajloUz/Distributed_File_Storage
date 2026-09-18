@@ -1,15 +1,6 @@
-window.onload = function(){
-    const field = "{{ file_id }}"
+window.onload = async function(){
     try {
-        const response = await fetch(`/api/view`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                file_id: field 
-            })
-        });
+        const response = await fetch(`/api/view/${file_id}`);
 
         if (!response.ok) {
             throw new Error("Failed to load file");
@@ -19,10 +10,6 @@ window.onload = function(){
 
 
         document.getElementById('data').textContent = data; 
-        if (response.redirected) {
-            window.location.href = response.url;
-            return;
-        }
 
     } catch (error) {
         //todo

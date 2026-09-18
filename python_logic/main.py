@@ -235,6 +235,7 @@ async def redirect_to_login():
         status_code=status.HTTP_303_SEE_OTHER
     )
 
+
 @app.get("/api/files")
 async def get_user_files(
     session_id: str | None = Cookie(default=None)
@@ -261,14 +262,6 @@ async def get_user_files(
                 "message": "Internal Server error" # change the error to smoething more coherent later
             },
             status_code=500
-
-        rust_data = rust_response.json();
-
-        return RedirectResponse(
-            url=f"/view/{rust_data["id"]}",
-            status_code=status.HTTP_303_SEE_OTHER
-        )
-
         return JSONResponse(content=rust_response.json())
     except Exception as e:
         print(f"Error proxying files request: {e}")
@@ -276,8 +269,6 @@ async def get_user_files(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error":"Failes to fetch files"}
         )
-
-
 
 @app.get("/api/files/{file_id}")
 async def download_file(
@@ -312,20 +303,19 @@ async def download_file(
         )
 
 
-class FileRequest(BaseModel):
-    file_id: str
 
-@app.post("/api/view/")
+@app.get("/api/view/{file_id}")
 async def view_txt( #remake to be universal with switch( which is 'match' in python ))
-        data: FileRequest,
+        file_id: str,
         session_id: str | None = Cookie(default=None)
 ):
     conn = None
     try:
-        rust_response = await client.get(
-            f"http://rust:8001/api/files/{data.file_id}",
-            cookies={"session_id": session_id}
-        )
+        async with httpx.AsyncClient() as client:
+            rust_response = await client.get(
+                f"http://rust:8001/api/files/{file_id}",
+                cookies={"session_id": session_id}
+            )
 
         content = rust_response.content.decode("utf-8")
         return Response(
