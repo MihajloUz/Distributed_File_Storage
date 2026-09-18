@@ -21,7 +21,7 @@ const uploadForm = document.getElementById('uploadForm');
                     li.innerHTML = `
                         <div>
                             <img src="/static/icons/${file.file_type}.svg">
-                            <a href="/api/files/${file.id}" target="_blank">${file.file_name}</a>
+                            <a href="/api/view/${file.id}" target="_blank">${file.file_name}</a>
                             <div class="date">${file.uploaded_at}</div>
                         </div>
                     `;

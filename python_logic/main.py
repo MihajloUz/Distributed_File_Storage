@@ -198,7 +198,7 @@ async def upload_file(
 ):
     filename = request.headers.get("Filename") # python sends the file name 
     cookie = request.headers.get("Cookie") # and the cookie aswell
-    trrust_response[]:
+    try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "http://rust:8001/api/upload",
@@ -316,17 +316,18 @@ class FileRequest(BaseModel):
     file_id: str
 
 @app.post("/api/view/")
-async def download_file( #rename
+async def view_txt( #remake to be universal with switch( which is 'match' in python ))
         data: FileRequest,
         session_id: str | None = Cookie(default=None)
 ):
     conn = None
     try:
-        # query db for user id and file name WHERE the file id 
-        #/app/user_data/{user_id}/{file_name}
-        # or maybe remake the rust :253 download_file to return file data
-        with open(f"/app/user_data/{data.file_id}", "r", encoding="utf-8") as file:
-            content = file.read()
+        rust_response = await client.get(
+            f"http://rust:8001/api/files/{data.file_id}",
+            cookies={"session_id": session_id}
+        )
+
+        content = rust_response.content.decode("utf-8")
         return Response(
             content=content,
             media_type="text/plain"

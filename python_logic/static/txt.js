@@ -11,8 +11,14 @@ window.onload = function(){
             })
         });
 
-        const data = await response.json();
-        document.getElementById('data').value = response; //to update 
+        if (!response.ok) {
+            throw new Error("Failed to load file");
+        }
+
+        const data = await response.text();
+
+
+        document.getElementById('data').textContent = data; 
         if (response.redirected) {
             window.location.href = response.url;
             return;
