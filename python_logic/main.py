@@ -93,7 +93,7 @@ async def view_file_page (request: Request, file_id: str):
     elif extension in {"mp4", "webm", "mov"}:
         template = "video.html" # todo
     else:
-        template = "file.html" # todo
+        return RedirectResponse(url=f"/api/files/{file_id}")
 
     return templates.TemplateResponse(
         request=request,
