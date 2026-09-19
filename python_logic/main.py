@@ -68,10 +68,35 @@ async def get_email_verification_page(request: Request):
 
 @app.get("/view/{file_id}", response_class=HTMLResponse)
 async def view_file_page (request: Request, file_id: str):
-    return templates.TemplateResponse (
-            request=request, 
-            name="txt.html",
-            context = {"file_id": str(file_id)}
+   
+    conn = None
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    query = "SELECT file_name FROM user_files WHERE user_files.id = %s"
+    cursor.execute(query, (file_id, ))
+    result = cursor.fetchone()
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    filename = result[0]; 
+
+    extension = filename.rsplit(".", 1)[-1].lower()
+
+    if extension in {"png", "jpg", "jpeg", "webp"}:
+        template = "img.html"
+    elif extension in {"txt", "md"}:
+        template = "txt.html"
+    elif extension in {"mp4", "webm", "mov"}:
+        template = "video.html" # todo
+    else:
+        template = "file.html" # todo
+
+    return templates.TemplateResponse(
+        request=request,
+        name=template,
+        context={"file_id": file_id}
     )
 
 @app.post("/api/sign_up")
@@ -305,7 +330,7 @@ async def download_file(
 
 
 @app.get("/api/view/{file_id}")
-async def view( #remake to be universal with switch( which is 'match' in python ))
+async def view( 
         file_id: str,
         session_id: str | None = Cookie(default=None)
 ):
@@ -313,48 +338,14 @@ async def view( #remake to be universal with switch( which is 'match' in python 
     try:
         async with httpx.AsyncClient() as client:
             rust_response = await client.get(
-                f"http://rust:8001/api/files/{file_id}",
+                f"http://rust:8001/api/files/{file_id}/view",
                 cookies={"session_id": session_id}
             )
-        conn = get_db_connection()
-        cursor = conn.cursor()
         
-        query = "SELECT file_name FROM user_files WHERE user_files.id = %s"
-        cursor.execute(query, (file_id, ))
-        result = cursor.fetchone()
-        if result is None:
-            return JSONResponse(
-                status_code=404,
-                content={"error": "File not found"}
-            )
-        # add match for each file format 
-
-        filename = result[0]
-        extension = filename.rsplit(".", 1)[-1].lower()
-
-        print(extension)
-        match extension:
-            case "mp4" | "mov" | "avi" | "mkv":
-                pass
-
-            case "jpg" | "png" | "webp" | "jpeg":
-                pass
-
-            case "ogg" | "mp3" | "m4a" | "oga" | "wav":
-                pass
-
-            case "txt":
-                content = rust_response.content.decode("utf-8")
-                return Response(
-                    content=content,
-                    media_type="text/plain"
-                )
-
-            case "md":
-                pass
-
-            case _:
-                pass
+        return Response(
+            content=rust_response.content,
+            media_type=rust_response.headers.get("Content-Type")
+        )
 
         
     except Exception as e:
