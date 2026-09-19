@@ -115,11 +115,6 @@ async def sign_up_page(
         result = cursor.fetchone()
         
         if result is not None and result[0]:
-            query = "INSERT INTO users (email, password) VALUES (%s, %s)"
-            cursor.execute(query, (data.email, data.password))
-            conn.commit()
-
-            cursor.close()
             return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
         else:
             async with httpx.AsyncClient() as client:
@@ -128,8 +123,8 @@ async def sign_up_page(
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            query = "INSERT INTO email_verification (email, verification_code, verified) VALUES (%s, %s, %s)"
-            cursor.execute(query, (str(data.email), rust_data["verification_code"], False))
+            query = "INSERT INTO email_verification (email, password, verification_code, verified) VALUES (%s, %s, %s, %s)"
+            cursor.execute(query, (str(data.email), data.password, rust_data["verification_code"], False))
             conn.commit()
 
             return RedirectResponse(url=f"/email_verification?email={data.email}", status_code=status.HTTP_303_SEE_OTHER)
@@ -153,17 +148,25 @@ async def email_verification(
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-        query = "SELECT verification_code FROM email_verification WHERE email = %s"
+        query = "SELECT verification_code, password, email FROM email_verification WHERE email = %s"
         cursor.execute(query, (str(email), ))
         result = cursor.fetchone()
         if result is not None and str(result["verification_code"]) == str(data.verification_code):
             query = "UPDATE email_verification SET verified = TRUE WHERE email = %s"
             cursor.execute(query, (str(email), ))
             conn.commit()
+
+            query = "INSERT INTO users (email, password) VALUES (%s, %s)"
+            cursor.execute(query, (str(email), result["password"]))
+            conn.commit()
+
             cursor.close()
-            return RedirectResponse(url="/sign_up", status_code=status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
         else:
-            return RedirectResponse(url="/sign_up", status_code=status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(
+                url=f"/email_verification?email={email}&error=wrong_code",
+                status_code=status.HTTP_303_SEE_OTHER
+            )
     except Exception as e:
         if conn:
             conn.rollback()
