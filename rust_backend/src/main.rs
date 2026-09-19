@@ -29,12 +29,7 @@ use tokio::io::AsyncWriteExt;
 use axum_extra::extract::cookie::CookieJar;
 use futures_util::StreamExt;  
 use lettre::{
-    address::AddressError,
-    Message,
-    AsyncSmtpTransport,
-    AsyncTransport, 
-    Tokio1Executor,
-    transport::smtp::authentication::Credentials
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, address::AddressError, transport::smtp::{authentication::Credentials, extension}
 };
 
 #[derive(Deserialize)]
@@ -282,6 +277,45 @@ async fn download_file(
     Ok(response)
 }
 
+async fn view_file(
+    jar: CookieJar,
+    State(state): State<AppState>,
+    Path(file_id): Path<uuid::Uuid>,
+) -> Result<impl IntoResponse, ServerError>{
+     
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
+    let row = client.query_opt(
+        "SELECT file_name FROM user_files WHERE user_files.id = $1", 
+        &[&file_id]
+    ).await?;
+
+    let Some(row) = row else{
+        return Err(ServerError::Parsing);
+    };
+    let file_name: String = row.get("file_name");
+    let bytes = fs::read(format!("/app/user_data/{user_id}/{file_name}")).await?;
+    
+    let extension = file_name.rsplit(".").next();
+    
+    let content_type = match extension{
+        Some("txt") => "text/plain",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        // add more later
+
+        _ => "application/octet-stream"
+    };
+
+    let response = Response::builder()
+        .header(
+            header::CONTENT_TYPE,
+            content_type
+        )
+        .body(Body::from(bytes))
+        .map_err(|_| ServerError::ResponseCreation)?; 
+    Ok(response)
+}
+
 
 fn create_app(state: AppState) -> Router{
     Router::new()
@@ -289,6 +323,7 @@ fn create_app(state: AppState) -> Router{
         .route("/api/upload", post(post_on_server)) 
         .route("/api/files", get(get_from_server)) 
         .route("/api/files/{file_id}", get(download_file)) 
+        .route("/api/files/{file_id}/view", get(view_file)) 
         .route("/api/email_verification", post(sending_verification_email))
         .with_state(state)
 }
