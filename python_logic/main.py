@@ -86,8 +86,10 @@ async def view_file_page (request: Request, file_id: str):
 
     if extension in {"png", "jpg", "jpeg", "webp"}:
         template = "img.html"
-    elif extension in {"txt", "md"}:
+    elif extension == "txt":
         template = "txt.html"
+    elif extension == "md":
+        template = "md.html" 
     elif extension in {"mp4", "webm", "mov"}:
         template = "video.html" # todo
     else:
