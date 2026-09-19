@@ -6,12 +6,16 @@ window.onload = async function(){
             throw new Error("Failed to load file");
         }
 
-        const data = await response.text();
+        const download_link = document.createElement("a");
+        download_link.textContent = "Download";
+        download_link.href = `/api/files/${file_id}`;
+        document.getElementById("download_div").append(download_link);
 
+        const data = await response.text();
 
         document.getElementById('data').textContent = data; 
 
     } catch (error) {
-        //todo
+        console.log(error);
     }
 }
