@@ -1,16 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <title>Hello!</title>
-    </head>
-    <body>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify email</title>
+    <link rel="stylesheet" href="/static/verification.css">
+</head>
+<body>
+
+    <div class="auth-container">
         <h1>Fill all of the fields</h1>
+
         <form id="verification_form">
-            <input type="text" id="verification_code" name="verification_code", required>
+            <input type="text" id="verification_code" name="verification_code" placeholder="Verification Code" required autocomplete="off">
+            <div id="message" class="error"></div>
             <button type="submit">Verify</button>
         </form>
-        <script src="/static/email_verification.js"></script>
-    </body>
-</html>
+    </div>
 
+    <script src="/static/email_verification.js"></script>
+</body>
+</html>

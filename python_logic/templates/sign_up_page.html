@@ -2,27 +2,34 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Sign up</title>
-   <link rel="stylesheet" href="/static/sign_up.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <link rel="stylesheet" href="/static/sign_up.css">
 </head>
 <body>
 
-    <form id="signupForm">Sign up
-    <input type="email" name="email" id="mail" required placeholder="Email">
-    <span class="error"></span>
+    <div class="auth-container">
+        <h2>Sign Up</h2>
 
-    <input type="password" name="password" id="pass1" required placeholder="Password">
-    <span class="error"></span>
+        <form id="signupForm" action="/api/sign_up" method="POST">
+            <input type="email" name="email" id="mail" required placeholder="Email">
+            <span class="error"></span>
 
-    <input type="password" id="pass2" required placeholder="Repeat Password">
-    <span class="error"></span>
+            <input type="password" name="password" id="pass1" required placeholder="Password">
+            <span class="error"></span>
 
-    <a href="/redirect-to-login" class="btn-link">Already have account ?</a>
+            <input type="password" id="pass2" required placeholder="Repeat Password">
+            <span class="error"></span>
 
-    <button type="submit">Sign Up</button>
-</form>
+            <button type="submit">Sign Up</button>
+        </form>
 
-    <script src="/static/sign_up.js">
-</script>
+        <div class="account-check">
+            <span>Already have an account?</span>
+            <a href="/redirect-to-login" class="btn-link">Login</a>
+        </div>
+    </div>
+
+    <script src="/static/sign_up.js"></script>
 </body>
 </html>

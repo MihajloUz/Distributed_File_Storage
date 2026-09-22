@@ -39,24 +39,28 @@ body {
     width: 100%;
     max-width: 400px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-h2 {
-    font-size: 1.75rem;
+h1 {
+    font-size: 1.5rem;
     font-weight: 700;
     text-align: center;
     margin-bottom: 1.5rem;
     color: var(--text-main);
+    width: 100%;
 }
 
 form {
+    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.5rem;
 }
 
-/* Базові стилі для інпутів */
-input {
+input[type="text"] {
     width: 100%;
     padding: 0.75rem 1rem;
     background-color: var(--input-bg) !important;
@@ -64,16 +68,16 @@ input {
     border-radius: 8px;
     color: var(--text-main) !important;
     font-size: 0.95rem;
+    text-align: center;
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-input:focus {
+input[type="text"]:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
 }
 
-/* Примусове перекриття огидного жовтого автозаповнення Chrome/Safari */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus,
@@ -89,12 +93,13 @@ input:-webkit-autofill:active {
     font-size: 0.8rem;
     min-height: 1.2rem;
     display: block;
+    text-align: center;
     margin-top: 0.2rem;
     margin-bottom: 0.2rem;
 }
 
 button[type="submit"] {
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
     width: 100%;
     padding: 0.75rem;
     background: var(--accent);
@@ -109,24 +114,4 @@ button[type="submit"] {
 
 button[type="submit"]:hover {
     background: var(--accent-hover);
-}
-
-.account-check {
-    margin-top: 1.5rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-}
-
-.btn-link {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: 600;
-}
-
-.btn-link:hover {
-    text-decoration: underline;
 }
