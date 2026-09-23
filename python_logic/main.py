@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
-
+# Add inserting file from buffer
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
