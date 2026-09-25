@@ -1,47 +1,32 @@
-use rand::RngExt;
-use serde::Deserialize;
 use axum::{
     Router,
     body::Body,
-    extract::{
-        State,
-        Json,
-        Path,
-    },
-    http::{
-        HeaderMap,
-        StatusCode,
-        Response,
-        header,
-    },
-    response::{
-        IntoResponse,
-    },
-    routing::{
-        get, 
-        post
-    }, 
+    extract::{Json, Path, State},
+    http::{HeaderMap, Response, header},
+    response::IntoResponse,
+    routing::{get, post},
 };
+use axum_extra::extract::cookie::CookieJar;
+use futures_util::StreamExt;
+use lettre::{
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    transport::smtp::authentication::Credentials,
+};
+use rand::RngExt;
 use rust_backend::*;
+use serde::Deserialize;
 use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
-use axum_extra::extract::cookie::CookieJar;
-use futures_util::StreamExt;  
-use lettre::{
-    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, address::AddressError, transport::smtp::{authentication::Credentials, extension}
-};
 
 #[derive(Deserialize)]
-struct UserJson{
+struct UserJson {
     email: String,
 }
 
 async fn sending_verification_email(
-    Json(data): Json<UserJson> 
-    ) 
-    -> Result<Json<serde_json::Value>, ServerError>{
-
+    Json(data): Json<UserJson>,
+) -> Result<Json<serde_json::Value>, ServerError> {
     let verification_code = rand::rng().random_range(100000..999999);
 
     let msg = format!(
@@ -59,73 +44,66 @@ async fn sending_verification_email(
 
     let credentials = Credentials::new(
         std::env::var("SERVER_EMAIL")?,
-        std::env::var("EMAIL_PASSWORD")?
+        std::env::var("EMAIL_PASSWORD")?,
     );
     println!("{}", data.email);
 
     let email = Message::builder()
-        .from(std::env::var("SERVER_EMAIL")?
-            .parse()
-            .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?
+        .from(
+            std::env::var("SERVER_EMAIL")?
+                .parse()
+                .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?,
         )
-        .to(data.email
+        .to(data
+            .email
             .parse()
-            .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?
-        )
+            .map_err(|e: lettre::address::AddressError| ServerError::Smtp(e.to_string()))?)
         .subject("Verification of the email")
         .header(lettre::message::header::ContentType::TEXT_HTML)
         .body(msg)?;
 
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay(
-        "smtp.gmail.com"
-    )?.credentials(credentials).build();
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay("smtp.gmail.com")?
+        .credentials(credentials)
+        .build();
 
     mailer.send(email).await?;
-    return Ok(
-        Json(serde_json::json!({
-            "verification_code": verification_code
-        })),
-    );
+    Ok(Json(serde_json::json!({
+        "verification_code": verification_code
+    })))
 }
 
 async fn create_cookie(
     State(state): State<AppState>,
-    Json(data): Json<UserJson> 
-    ) -> Result<Json<serde_json::Value>, ServerError> {
-
+    Json(data): Json<UserJson>,
+) -> Result<Json<serde_json::Value>, ServerError> {
     let client = state.db.get().await?;
-    let row = client.query_opt(
-        "SELECT id FROM users WHERE email = $1", 
-        &[&data.email]
-    ).await?;
+    let row = client
+        .query_opt("SELECT id FROM users WHERE email = $1", &[&data.email])
+        .await?;
 
-    let Some(row) = row else{
-        return Ok(
-            Json(serde_json::json!({
-                "success": false,
-                "session_id": "No session id was created"
-            })),
-        );
+    let Some(row) = row else {
+        return Ok(Json(serde_json::json!({
+            "success": false,
+            "session_id": "No session id was created"
+        })));
     };
-
 
     let user_id: uuid::Uuid = row.get("id");
 
-    let row = client.query_one(
-        "INSERT INTO sessions (user_id) VALUES ($1) RETURNING session_id",
-        &[&user_id]
-    ).await?;
+    let row = client
+        .query_one(
+            "INSERT INTO sessions (user_id) VALUES ($1) RETURNING session_id",
+            &[&user_id],
+        )
+        .await?;
 
     let session_id: uuid::Uuid = row.get("session_id");
 
-    return Ok(
-        Json(serde_json::json!({
-            "success": true,
-            "session_id": session_id
-        })),
-    );
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "session_id": session_id
+    })))
 }
-
 
 // here i should upload file ot the server based on the users id that
 // I get from session id and sessions table
@@ -133,27 +111,28 @@ async fn create_cookie(
 // or failure
 // and add data about the file to table user_files
 
-
-
-// now it reutrn json correctly 
+// now it reutrn json correctly
 async fn post_on_server(
     jar: CookieJar,
     headers: HeaderMap,
     State(state): State<AppState>,
-    body: Body
-
-) -> Result<Json<serde_json::Value>, ServerError>{
-    let filename = headers.get("Filename")
+    body: Body,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let filename = headers
+        .get("Filename")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("Unnamed");
-   
-    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
-    let mut stream = body.into_data_stream();   
+
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) =
+        get_user_id_from_cookie(jar, State(state)).await?;
+    let mut stream = body.into_data_stream();
 
     let path = format!("/app/user_data/{}/{}", user_id, filename);
 
     if let Some(parent) = std::path::Path::new(&path).parent() {
-        tokio::fs::create_dir_all(parent).await.map_err(ServerError::Io)?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(ServerError::Io)?;
     }
 
     let mut file = OpenOptions::new()
@@ -163,88 +142,91 @@ async fn post_on_server(
         .open(&path)
         .await
         .map_err(ServerError::Io)?;
-    
-    while let Some(chunk_result) = stream.next().await{
-        match chunk_result{
+
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
             Ok(chunk) => {
-                file.write_all(&chunk).await.map_err(ServerError::Io)?;                   
-            },
+                file.write_all(&chunk).await.map_err(ServerError::Io)?;
+            }
             Err(e) => {
                 return Err(ServerError::Axum(e));
-            },
+            }
         }
     }
-    let row = client.execute(
-        "INSERT INTO user_files (user_id, file_name) VALUES ($1, $2)",
-        &[&user_id, &filename]
-    ).await?;
-    Ok(
-        Json(serde_json::json!({
-            "success": true,
-        })),
-    )
+    let _row = client
+        .execute(
+            "INSERT INTO user_files (user_id, file_name) VALUES ($1, $2)",
+            &[&user_id, &filename],
+        )
+        .await?;
+    Ok(Json(serde_json::json!({
+        "success": true,
+    })))
 }
-
-
 
 async fn get_from_server(
     jar: CookieJar,
     State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, ServerError>{
-    
-    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
-    let rows = client.query(
-        "SELECT id, file_name, uploaded_at FROM user_files WHERE user_files.user_id = $1", 
-        &[&user_id]
-    ).await?;
-    
-    let files: Vec<_> = rows.iter().map(|row| {
-        let id: uuid::Uuid= row.get("id");
-        let file_name: String = row.get("file_name");
-        let uploaded_at_full: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
-        
-        let uploaded_at: String = uploaded_at_full.format("%d %b %Y").to_string();
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) =
+        get_user_id_from_cookie(jar, State(state)).await?;
+    let rows = client
+        .query(
+            "SELECT id, file_name, uploaded_at FROM user_files WHERE user_files.user_id = $1",
+            &[&user_id],
+        )
+        .await?;
 
-        let extension = file_name.split(".").last();
-        let file_type: &str;
+    let files: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let id: uuid::Uuid = row.get("id");
+            let file_name: String = row.get("file_name");
+            let uploaded_at_full: chrono::DateTime<chrono::Utc> = row.get("uploaded_at");
 
-        if let Some(value) = extension {
-            match value {
-                "mp4" | "mov" | "avi" | "mkv" => {
-                    file_type = "video";
-                },
-                "jpg" | "png" | "webp" | "jpeg" => {
-                    file_type = "image";
-                },
-                "ogg" | "mp3" | "m4a" | "oga" | "wav" => {
-                    file_type = "audio";
-                },
+            let uploaded_at: String = uploaded_at_full.format("%d %b %Y").to_string();
 
-                "pdf" => {
-                    file_type = "pdf";
+            let extension = file_name.split(".").last();
+            let file_type: &str;
+
+            if let Some(value) = extension {
+                match value {
+                    "mp4" | "mov" | "avi" | "mkv" => {
+                        file_type = "video";
+                    }
+                    "jpg" | "png" | "webp" | "jpeg" => {
+                        file_type = "image";
+                    }
+                    "ogg" | "mp3" | "m4a" | "oga" | "wav" => {
+                        file_type = "audio";
+                    }
+
+                    "pdf" => {
+                        file_type = "pdf";
+                    }
+
+                    "txt" => {
+                        file_type = "text";
+                    }
+                    "md" => {
+                        file_type = "markdown";
+                    }
+                    _ => {
+                        file_type = "file";
+                    }
                 }
-
-                "txt" => {
-                    file_type = "text";
-                },
-                "md" => {
-                    file_type = "markdown";
-                },
-                _ => {
-                    file_type = "file";
-                }
+            } else {
+                file_type = "file"; // no extension file 
             }
-        }else{
-            file_type = "file"; // no extension file 
-        }
 
-        serde_json::json!({
-            "id": id,
-            "file_name": file_name,
-            "uploaded_at": uploaded_at,
-            "file_type": file_type
+            serde_json::json!({
+                "id": id,
+                "file_name": file_name,
+                "uploaded_at": uploaded_at,
+                "file_type": file_type
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(Json(serde_json::json!({"files": files})))
 }
@@ -253,32 +235,31 @@ async fn download_file(
     jar: CookieJar,
     State(state): State<AppState>,
     Path(file_id): Path<uuid::Uuid>,
-) -> Result<impl IntoResponse, ServerError>{
-     
-    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
-    let row = client.query_opt(
-        "SELECT file_name FROM user_files WHERE user_files.id = $1", 
-        &[&file_id]
-    ).await?;
+) -> Result<impl IntoResponse, ServerError> {
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) =
+        get_user_id_from_cookie(jar, State(state)).await?;
+    let row = client
+        .query_opt(
+            "SELECT file_name FROM user_files WHERE user_files.id = $1",
+            &[&file_id],
+        )
+        .await?;
 
-    let Some(row) = row else{
+    let Some(row) = row else {
         return Err(ServerError::Parsing);
     };
     let file_name: String = row.get("file_name");
     println!("file name is: {file_name}");
     let bytes = fs::read(format!("/app/user_data/{user_id}/{file_name}")).await?;
-    
+
     let response = Response::builder()
-        .header(
-            header::CONTENT_TYPE,
-            "application/octet-stream",
-        )
+        .header(header::CONTENT_TYPE, "application/octet-stream")
         .header(
             header::CONTENT_DISPOSITION,
             format!("attachment; filename=\"{}\"", file_name),
         )
         .body(Body::from(bytes))
-        .map_err(|_| ServerError::ResponseCreation)?; 
+        .map_err(|_| ServerError::ResponseCreation)?;
     Ok(response)
 }
 
@@ -286,90 +267,100 @@ async fn view_file(
     jar: CookieJar,
     State(state): State<AppState>,
     Path(file_id): Path<uuid::Uuid>,
-) -> Result<impl IntoResponse, ServerError>{
-     
-    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) = get_user_id_from_cookie(jar, State(state)).await?;
-    let row = client.query_opt(
-        "SELECT file_name FROM user_files WHERE user_files.id = $1", 
-        &[&file_id]
-    ).await?;
+) -> Result<impl IntoResponse, ServerError> {
+    let (client, user_id): (deadpool_postgres::Object, uuid::Uuid) =
+        get_user_id_from_cookie(jar, State(state)).await?;
+    let row = client
+        .query_opt(
+            "SELECT file_name FROM user_files WHERE user_files.id = $1",
+            &[&file_id],
+        )
+        .await?;
 
-    let Some(row) = row else{
+    let Some(row) = row else {
         return Err(ServerError::Parsing);
     };
     let file_name: String = row.get("file_name");
     let bytes = fs::read(format!("/app/user_data/{user_id}/{file_name}")).await?;
-    
+
     let extension = file_name.rsplit(".").next();
-    
-    let content_type = match extension{
+
+    let content_type = match extension {
         Some("txt") => "text/plain",
         Some("png") => "image/png",
         Some("jpg") | Some("jpeg") => "image/jpeg",
-        Some("pdf")  => "application/pdf",
+        Some("pdf") => "application/pdf",
         // add more later
-
-        _ => "application/octet-stream"
+        _ => "application/octet-stream",
     };
 
     let response = Response::builder()
-        .header(
-            header::CONTENT_TYPE,
-            content_type
-        )
+        .header(header::CONTENT_TYPE, content_type)
         .body(Body::from(bytes))
-        .map_err(|_| ServerError::ResponseCreation)?; 
+        .map_err(|_| ServerError::ResponseCreation)?;
     Ok(response)
 }
 
-
-fn create_app(state: AppState) -> Router{
+fn create_app(state: AppState) -> Router {
     Router::new()
-        .route("/login_successful", post(create_cookie)) 
-        .route("/api/upload", post(post_on_server)) 
-        .route("/api/files", get(get_from_server)) 
-        .route("/api/files/{file_id}", get(download_file)) 
-        .route("/api/files/{file_id}/view", get(view_file)) 
+        .route("/login_successful", post(create_cookie))
+        .route("/api/upload", post(post_on_server))
+        .route("/api/files", get(get_from_server))
+        .route("/api/files/{file_id}", get(download_file))
+        .route("/api/files/{file_id}/view", get(view_file))
         .route("/api/email_verification", post(sending_verification_email))
         .with_state(state)
 }
 
 #[tokio::main]
-async fn main() -> Result<(), ServerError>{
-
+async fn main() -> Result<(), ServerError> {
     dotenvy::dotenv().ok();
     let (client, connection) = tokio_postgres::connect(
-        format!("host={} user={} password={} dbname={}",
-                std::env::var("POSTGRES_HOST")?,
-                std::env::var("POSTGRES_USER")?,
-                std::env::var("POSTGRES_PASSWORD")?,
-                "postgres".to_string()).as_str(), 
-            tokio_postgres::NoTls
-    ).await?;
+        format!(
+            "host={} user={} password={} dbname={}",
+            std::env::var("POSTGRES_HOST")?,
+            std::env::var("POSTGRES_USER")?,
+            std::env::var("POSTGRES_PASSWORD")?,
+            "postgres"
+        )
+        .as_str(),
+        tokio_postgres::NoTls,
+    )
+    .await?;
     tokio::spawn(async move {
-        if let Err(e) = connection.await{
+        if let Err(e) = connection.await {
             eprintln!("Error connecting to db: {}", e);
         }
     });
 
-    match client.batch_execute(
-        &format!("CREATE DATABASE {}", std::env::var("POSTGRES_DB")?)
-    ).await{
-        Ok(_) => {},
-        Err(_) => {println!("Database was already created. Skipping creating another one");}
-    } 
+    match client
+        .batch_execute(&format!(
+            "CREATE DATABASE {}",
+            std::env::var("POSTGRES_DB")?
+        ))
+        .await
+    {
+        Ok(_) => {}
+        Err(_) => {
+            println!("Database was already created. Skipping creating another one");
+        }
+    }
     dotenvy::dotenv().ok();
-    
+
     let (_client, connection) = tokio_postgres::connect(
-        format!("host={} user={} password={} dbname={}",
-                std::env::var("POSTGRES_HOST")?,
-                std::env::var("POSTGRES_USER")?,
-                std::env::var("POSTGRES_PASSWORD")?,
-                std::env::var("POSTGRES_DB")?).as_str(), 
-            tokio_postgres::NoTls
-    ).await?;
+        format!(
+            "host={} user={} password={} dbname={}",
+            std::env::var("POSTGRES_HOST")?,
+            std::env::var("POSTGRES_USER")?,
+            std::env::var("POSTGRES_PASSWORD")?,
+            std::env::var("POSTGRES_DB")?
+        )
+        .as_str(),
+        tokio_postgres::NoTls,
+    )
+    .await?;
     tokio::spawn(async move {
-        if let Err(e) = connection.await{
+        if let Err(e) = connection.await {
             eprintln!("Error connecting to db: {}", e);
         }
     });
@@ -377,15 +368,12 @@ async fn main() -> Result<(), ServerError>{
     let pool = create_pool()?;
     setting_up_db(&pool).await?;
 
-    let state = AppState{
-        db: pool, 
-    };
+    let state = AppState { db: pool };
 
     let app = create_app(state);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8001").await?;
 
     axum::serve(listener, app).await?;
-
 
     Ok(())
 }

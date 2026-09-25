@@ -1,16 +1,11 @@
+use axum::extract::State;
 use axum::{http::StatusCode, response::IntoResponse};
 use axum_extra::extract::cookie::CookieJar;
-use axum::extract::State;
-use std::{fmt, env};
-use deadpool_postgres::{
-    Config, 
-    Runtime, 
-};
-
-use lettre::address::AddressError;
+use deadpool_postgres::{Config, Runtime};
+use std::{env, fmt};
 
 #[derive(Debug)]
-pub enum ServerError{
+pub enum ServerError {
     TokioDb(tokio_postgres::Error),
     DeadpoolDb(deadpool_postgres::PoolError),
     PoolCreation(deadpool_postgres::CreatePoolError),
@@ -20,17 +15,16 @@ pub enum ServerError{
     Axum(axum::Error),
     Lettre(lettre::error::Error),
     Smtp(String),
-    
+
     Parsing,
     NotFound,
-    NoCookie,  
-    ResponseCreation,  
+    NoCookie,
+    ResponseCreation,
 }
 
-
-impl fmt::Display for ServerError{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result{
-        match self{
+impl fmt::Display for ServerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
             ServerError::TokioDb(e) => {
                 write!(f, "tokio_postgres database erorr: {}", e)
             }
@@ -73,9 +67,9 @@ impl fmt::Display for ServerError{
         }
     }
 }
-impl IntoResponse for ServerError{
+impl IntoResponse for ServerError {
     fn into_response(self) -> axum::response::Response {
-        let status = match self{
+        let status = match self {
             ServerError::TokioDb(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::DeadpoolDb(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::PoolCreation(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -95,67 +89,64 @@ impl IntoResponse for ServerError{
     }
 }
 
-
-impl From<tokio_postgres::Error> for ServerError{
-    fn from(e: tokio_postgres::Error) -> Self{
+impl From<tokio_postgres::Error> for ServerError {
+    fn from(e: tokio_postgres::Error) -> Self {
         ServerError::TokioDb(e)
     }
-} 
+}
 
-impl From<deadpool_postgres::PoolError> for ServerError{
+impl From<deadpool_postgres::PoolError> for ServerError {
     fn from(e: deadpool_postgres::PoolError) -> Self {
         ServerError::DeadpoolDb(e)
     }
 }
 
-impl From<deadpool_postgres::CreatePoolError> for ServerError{
+impl From<deadpool_postgres::CreatePoolError> for ServerError {
     fn from(e: deadpool_postgres::CreatePoolError) -> Self {
-        ServerError::PoolCreation(e) 
+        ServerError::PoolCreation(e)
     }
 }
 
-impl From<std::io::Error> for ServerError{
-    fn from(e: std::io::Error) -> Self{
+impl From<std::io::Error> for ServerError {
+    fn from(e: std::io::Error) -> Self {
         ServerError::Io(e)
     }
-} 
+}
 
-impl From<env::VarError> for ServerError{
+impl From<env::VarError> for ServerError {
     fn from(e: env::VarError) -> Self {
-        ServerError::Env(e) 
+        ServerError::Env(e)
     }
 }
 
-impl From<serde_json::Error> for ServerError{
+impl From<serde_json::Error> for ServerError {
     fn from(e: serde_json::Error) -> Self {
-        ServerError::SerdeJson(e) 
+        ServerError::SerdeJson(e)
     }
 }
 
-impl From<axum::Error> for ServerError{
+impl From<axum::Error> for ServerError {
     fn from(e: axum::Error) -> Self {
-        ServerError::Axum(e) 
+        ServerError::Axum(e)
     }
 }
 
-impl From<lettre::error::Error> for ServerError{
+impl From<lettre::error::Error> for ServerError {
     fn from(e: lettre::error::Error) -> Self {
-        ServerError::Lettre(e) 
+        ServerError::Lettre(e)
     }
 }
 
-impl From<lettre::transport::smtp::Error> for ServerError{
+impl From<lettre::transport::smtp::Error> for ServerError {
     fn from(e: lettre::transport::smtp::Error) -> Self {
         ServerError::Smtp(e.to_string())
     }
 }
 
-
-
-impl std::error::Error for ServerError{}
+impl std::error::Error for ServerError {}
 
 //db
-pub fn create_pool() -> Result<deadpool_postgres::Pool, ServerError>{
+pub fn create_pool() -> Result<deadpool_postgres::Pool, ServerError> {
     let mut cfg = Config::new();
 
     cfg.host = Some(std::env::var("POSTGRES_HOST")?);
@@ -168,17 +159,18 @@ pub fn create_pool() -> Result<deadpool_postgres::Pool, ServerError>{
 
 //App state and msg receiving
 #[derive(Clone)]
-pub struct AppState{
+pub struct AppState {
     pub db: deadpool_postgres::Pool,
 }
 
-
-
-pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpool_postgres::PoolError>{
+pub async fn setting_up_db(
+    pool: &deadpool_postgres::Pool,
+) -> Result<(), deadpool_postgres::PoolError> {
     let client = pool.get().await?;
 
-    client.batch_execute(
-        "
+    client
+        .batch_execute(
+            "
         CREATE EXTENSION IF NOT EXISTS pgcrypto;
         CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -205,20 +197,20 @@ pub async fn setting_up_db(pool: &deadpool_postgres::Pool) -> Result<(), deadpoo
             verification_code INTEGER NOT NULL,
             verified BOOLEAN DEFAULT FALSE
         );
-        "
-    ).await?;
+        ",
+        )
+        .await?;
 
     Ok(())
 }
 
 pub fn get_cookie(jar: &CookieJar, cookie_name: &str) -> Option<String> {
-    jar.get(cookie_name).map(|cookie| cookie.value().to_string())
+    jar.get(cookie_name)
+        .map(|cookie| cookie.value().to_string())
 }
 
-fn session_cookie_check(
-    jar: CookieJar,
-) ->Result<String, ServerError>{
-    match get_cookie(&jar, "session_id"){
+fn session_cookie_check(jar: CookieJar) -> Result<String, ServerError> {
+    match get_cookie(&jar, "session_id") {
         Some(value) => Ok(value),
         None => Err(ServerError::NoCookie),
     }
@@ -227,20 +219,22 @@ fn session_cookie_check(
 pub async fn get_user_id_from_cookie(
     jar: CookieJar,
     State(state): State<AppState>,
-) -> Result<(deadpool_postgres::Object, uuid::Uuid), ServerError> { 
+) -> Result<(deadpool_postgres::Object, uuid::Uuid), ServerError> {
     let value = session_cookie_check(jar)?;
     let session_id: uuid::Uuid = value.parse().map_err(|_| ServerError::Parsing)?;
     let client = state.db.get().await?;
-   
-    let row = client.query_opt(
-        "SELECT user_id FROM sessions WHERE sessions.session_id = $1",
-        &[&session_id]
-    ).await?;
 
-    let Some(row) = row else{
+    let row = client
+        .query_opt(
+            "SELECT user_id FROM sessions WHERE sessions.session_id = $1",
+            &[&session_id],
+        )
+        .await?;
+
+    let Some(row) = row else {
         return Err(ServerError::Parsing);
     };
-    
+
     let user_id: uuid::Uuid = row.get("user_id");
     Ok((client, user_id))
 }
