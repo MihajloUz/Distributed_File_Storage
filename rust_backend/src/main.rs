@@ -220,11 +220,15 @@ async fn get_from_server(
                     file_type = "audio";
                 },
 
+                "pdf" => {
+                    file_type = "pdf";
+                }
+
                 "txt" => {
-                    file_type = "text"
+                    file_type = "text";
                 },
                 "md" => {
-                    file_type = "markdown"
+                    file_type = "markdown";
                 },
                 _ => {
                     file_type = "file";
@@ -261,6 +265,7 @@ async fn download_file(
         return Err(ServerError::Parsing);
     };
     let file_name: String = row.get("file_name");
+    println!("file name is: {file_name}");
     let bytes = fs::read(format!("/app/user_data/{user_id}/{file_name}")).await?;
     
     let response = Response::builder()
@@ -301,6 +306,7 @@ async fn view_file(
         Some("txt") => "text/plain",
         Some("png") => "image/png",
         Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("pdf")  => "application/pdf",
         // add more later
 
         _ => "application/octet-stream"
