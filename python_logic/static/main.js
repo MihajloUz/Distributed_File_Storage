@@ -72,6 +72,62 @@ const uploadForm = document.getElementById('uploadForm');
             }
         });
 
+        document.addEventListener('paste', async (e) => {
+            e.preventDefault();
+            const items = event.clipboardData?.items;
+            if (!items || items.length === 0) return;
+
+            const files = [];
+            for (const item of items) {
+                if (item.kind === 'file') {
+                    const file = item.getAsFile();
+                    if (file) files.push(file);
+                }
+            }
+
+            if (files.length === 0) {
+                return;
+            }
+
+            const file = files[0];
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            messageDiv.style.color = 'black';
+            messageDiv.textContent = 'Loading...';
+            
+            // add some type of pop up that informs whether the file was 
+            // uploaded or not 
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Filename': file.name,
+                    },
+                    body: file 
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    messageDiv.style.color = 'green';
+                    messageDiv.textContent = result.message;
+                    fileInput.value = ''; 
+                    console.log("SUCCESSFUL UPLOAD. TRYING TO LOAD FILES FRO MTHE SERVER");
+                    loadFilesList(); 
+                } else {
+                    messageDiv.style.color = 'red';
+                    messageDiv.textContent = result.detail || 'Upload error';
+                }
+            } catch (error) {
+                messageDiv.style.color = 'red';
+                messageDiv.textContent = 'Network connection error';
+            } 
+
+        });
+
         document.addEventListener('DOMContentLoaded', loadFilesList);
         function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
