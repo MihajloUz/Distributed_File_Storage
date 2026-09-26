@@ -20,7 +20,6 @@ filesList.addEventListener("submit", async (event) => {
     overlay.style.width = "100%";
     overlay.style.height = "100%";
 
-
     event.preventDefault();
 
     const form = event.target;
@@ -43,7 +42,7 @@ filesList.addEventListener("submit", async (event) => {
                 content.innerHTML = "";
                 content.appendChild(img);
                 break;
-            case "text": // maybe make separate for md later
+            case "text":
             case "md":
                 const text = document.createElement("pre");
                 text.innerHTML = await blob.text();
@@ -74,12 +73,6 @@ filesList.addEventListener("submit", async (event) => {
         download_link.href = `/api/files/${data.file_id}`;
         download_div.append(download_link);
 
-
-        //const img = document.createElement("img");
-        //img.src = URL.createObjectURL(blob);
-
-
-        console.log(data);
     } catch (error) {
         console.error("Error:", error);
     }
