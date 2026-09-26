@@ -66,6 +66,15 @@ filesList.addEventListener("submit", async (event) => {
                 console.log("something went wrong in switch statement");
         }
 
+        const download_div = document.getElementById("download_div");
+        download_div.innerHTML = "";
+
+        const download_link = document.createElement("a");
+        download_link.textContent = "Download";
+        download_link.href = `/api/files/${data.file_id}`;
+        download_div.append(download_link);
+
+
         //const img = document.createElement("img");
         //img.src = URL.createObjectURL(blob);
 
