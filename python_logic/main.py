@@ -66,8 +66,8 @@ async def get_email_verification_page(request: Request):
             name="email_verification.html" 
     )
 
-@app.get("/view/{file_id}", response_class=HTMLResponse)
-async def view_file_page (request: Request, file_id: str):
+@app.get("/view/{file_id}")
+async def view_file_page (file_id: str):
    
     conn = None
     conn = get_db_connection()
@@ -85,23 +85,23 @@ async def view_file_page (request: Request, file_id: str):
     extension = filename.rsplit(".", 1)[-1].lower()
 
     if extension in {"png", "jpg", "jpeg", "webp"}:
-        template = "img.html"
+        file_type = "image"
     elif extension == "txt":
-        template = "txt.html"
+        file_type = "text"
     elif extension == "md":
-        template = "md.html" 
+        file_type = "markdown" 
     elif extension == "pdf":
-        template = "pdf.html" 
+        file_type = "pdf" 
     elif extension in {"mp4", "webm", "mov"}:
-        template = "video.html" # todo
+        file_type = "video" # todo
     else:
-        return RedirectResponse(url=f"/api/files/{file_id}")
+        file_type = "download"
 
-    return templates.TemplateResponse(
-        request=request,
-        name=template,
-        context={"file_id": file_id}
-    )
+    return {
+        "file_id": file_id,
+        "filename": filename,
+        "type": file_type
+    }
 
 @app.post("/api/sign_up")
 async def sign_up_page(
