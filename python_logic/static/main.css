@@ -161,6 +161,27 @@ color: var(--accent-primary);
     object-fit: contain;
     flex-shrink: 0;
 }
+#overlay {
+    display: flex;
+    position: fixed;
+    left: 0px;
+    top: 0px;
+    user-select: none;
+    background: rgba(0, 0, 0, 0);
+    padding: 5px;
+}
+#overlay > .content {
+    overflow: auto;
+    max-width: 100%;
+    max-height: 100%;
+}
+#overlay > #close {
+    display: none;
+    position: absolute;
+    color: white;
+    right: 0px;
+    top: 0px;
+}
 
 .date, #filesList .date {
 font-size: 0.8rem;
