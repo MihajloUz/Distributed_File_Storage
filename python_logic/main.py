@@ -223,7 +223,7 @@ async def login_user(
         if conn:
             conn.close()
 
-#эндпоинт для аплоаду
+#эндпоинт для аплоада
 @app.post("/api/upload")
 async def upload_file(
     request: Request 
