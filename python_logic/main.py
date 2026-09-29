@@ -93,7 +93,7 @@ async def view_file_page (file_id: str):
     elif extension == "pdf":
         file_type = "pdf" 
     elif extension in {"mp4", "webm", "mov"}:
-        file_type = "video" # todo
+        file_type = "video" 
     else:
         file_type = "download"
 

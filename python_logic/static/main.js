@@ -57,6 +57,19 @@ filesList.addEventListener("submit", async (event) => {
                 content.innerHTML = "";
                 content.appendChild(embed);
                 break;
+            case "video":
+                const video = document.createElement("video");
+
+                video.controls = true;
+
+                content.innerHTML = "";
+                content.appendChild(video);
+
+                const source = document.createElement("source");
+                source.src = URL.createObjectURL(blob);
+                source.type = "video/mp4";
+                video.appendChild(source);
+                break;
 
             default: 
                 console.log("something went wrong in switch statement");
