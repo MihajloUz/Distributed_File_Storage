@@ -11,16 +11,13 @@ filesList.addEventListener("submit", async (event) => {
     if (!event.target.matches(".get_overlay_info")) {
         return;
     }
-    
-    close_button.style.display = "block";
-    close_button.style.width = "50px";
-    close_button.style.height = "50px";
-    close_button.style.fontSize = "25px";   
-    overlay.style.background = "rgba(0, 0, 0, 0.5)";
-    overlay.style.width = "100%";
-    overlay.style.height = "100%";
 
     event.preventDefault();
+
+    overlay.classList.add("active");
+    overlay.style.display = "flex";
+
+    close_button.innerHTML = "&times;";
 
     const form = event.target;
 
@@ -34,7 +31,7 @@ filesList.addEventListener("submit", async (event) => {
         const rust_response = await fetch(`/api/view/${data.file_id}`);
         const blob = await rust_response.blob();
 
-        switch (data.type){
+        switch (data.type) {
             case "image":
                 const img = document.createElement("img");
                 img.src = URL.createObjectURL(blob);
@@ -45,7 +42,7 @@ filesList.addEventListener("submit", async (event) => {
             case "text":
             case "md":
                 const text = document.createElement("pre");
-                text.innerHTML = await blob.text();
+                text.textContent = await blob.text();
 
                 content.innerHTML = "";
                 content.appendChild(text);
@@ -53,50 +50,56 @@ filesList.addEventListener("submit", async (event) => {
             case "pdf":
                 const embed = document.createElement("embed");
                 embed.src = `/api/view/${data.file_id}`;
+                embed.type = "application/pdf";
                 embed.width = "100%";
-                embed.height = "800px"; //tweak this a bit so it would fit download link aswell as the pdf itself later
+                embed.height = "100%";
 
                 content.innerHTML = "";
                 content.appendChild(embed);
                 break;
 
-
             default: 
                 console.log("something went wrong in switch statement");
         }
 
+        // кнопка download
         const download_div = document.getElementById("download_div");
-        download_div.innerHTML = "";
+        if (download_div) {
+            download_div.innerHTML = "";
 
-        const download_link = document.createElement("a");
-        download_link.textContent = "Download";
-        download_link.href = `/api/files/${data.file_id}`;
-        download_div.append(download_link);
+            const download_link = document.createElement("a");
+            download_link.textContent = "Download";
+            download_link.href = `/api/files/${data.file_id}`;
+            download_link.setAttribute("download", "");
+            download_div.appendChild(download_link);
+        }
 
     } catch (error) {
         console.error("Error:", error);
     }
 });
 
+// Для закриття оверлею
 close_button.addEventListener("click", () => {
     content.innerHTML = "";
-    overlay.style.background = "rgba(0, 0, 0, 0)";
-    close_button.style.display = "none";
-    close_button.style.width = "0";
-    close_button.style.height = "0";
-    close_button.style.fontSize = "0";
-    overlay.style.width = "0";
-    overlay.style.height = "0";
+    
+    const download_div = document.getElementById("download_div");
+    if (download_div) {
+        download_div.innerHTML = "";
+    }
+
+    overlay.classList.remove("active");
+    overlay.style.display = "none";
 });
 
 async function loadFilesList() {
     try {
         const response = await fetch('/api/files');
         const data = await response.json();
-        console.log(data)
+        console.log(data);
         filesList.innerHTML = '';
 
-        if (data.files.length === 0) {
+        if (!data.files || data.files.length === 0) {
             filesList.innerHTML = "<li>The files haven't been uploaded yet</li>";
             return;
         }
@@ -106,7 +109,7 @@ async function loadFilesList() {
 
             li.innerHTML = `
                 <div>
-                    <img src="/static/icons/${file.file_type}.svg">
+                    <img src="/static/icons/${file.file_type}.svg" alt="icon">
                     <form class="get_overlay_info" action="/view/${file.id}" method="GET">
                         <button type="submit">${file.file_name}</button>
                     </form>
@@ -125,13 +128,10 @@ uploadForm.addEventListener('submit', async (e) => {
 
     if (!fileInput.files[0]) return;
 
-    const formData = new FormData();
     const file = fileInput.files[0];
-    formData.append('file', file);
 
-    messageDiv.style.color = 'black';
+    messageDiv.style.color = 'var(--text-main)';
     messageDiv.textContent = 'Loading...';
-
 
     try {
         const response = await fetch('/api/upload', {
@@ -145,24 +145,23 @@ uploadForm.addEventListener('submit', async (e) => {
         const result = await response.json();
 
         if (response.ok) {
-            messageDiv.style.color = 'green';
+            messageDiv.style.color = 'var(--success)';
             messageDiv.textContent = result.message;
             fileInput.value = ''; 
-            console.log("SUCCESSFUL UPLOAD. TRYING TO LOAD FILES FRO MTHE SERVER");
+            console.log("SUCCESSFUL UPLOAD. TRYING TO LOAD FILES FROM THE SERVER");
             loadFilesList(); 
         } else {
-            messageDiv.style.color = 'red';
+            messageDiv.style.color = 'var(--danger)';
             messageDiv.textContent = result.detail || 'Upload error';
         }
     } catch (error) {
-        messageDiv.style.color = 'red';
+        messageDiv.style.color = 'var(--danger)';
         messageDiv.textContent = 'Network connection error';
     }
 });
 
 document.addEventListener('paste', async (e) => {
-    e.preventDefault();
-    const items = event.clipboardData?.items;
+    const items = e.clipboardData?.items;
     if (!items || items.length === 0) return;
 
     const files = [];
@@ -173,20 +172,13 @@ document.addEventListener('paste', async (e) => {
         }
     }
 
-    if (files.length === 0) {
-        return;
-    }
+    if (files.length === 0) return;
 
+    e.preventDefault();
     const file = files[0];
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    messageDiv.style.color = 'black';
+    messageDiv.style.color = 'var(--text-main)';
     messageDiv.textContent = 'Loading...';
-    
-    // add some type of pop up that informs whether the file was 
-    // uploaded or not 
 
     try {
         const response = await fetch('/api/upload', {
@@ -200,23 +192,23 @@ document.addEventListener('paste', async (e) => {
         const result = await response.json();
 
         if (response.ok) {
-            messageDiv.style.color = 'green';
+            messageDiv.style.color = 'var(--success)';
             messageDiv.textContent = result.message;
             fileInput.value = ''; 
-            console.log("SUCCESSFUL UPLOAD. TRYING TO LOAD FILES FRO MTHE SERVER");
+            console.log("SUCCESSFUL UPLOAD. TRYING TO LOAD FILES FROM THE SERVER");
             loadFilesList(); 
         } else {
-            messageDiv.style.color = 'red';
+            messageDiv.style.color = 'var(--danger)';
             messageDiv.textContent = result.detail || 'Upload error';
         }
     } catch (error) {
-        messageDiv.style.color = 'red';
+        messageDiv.style.color = 'var(--danger)';
         messageDiv.textContent = 'Network connection error';
     } 
-
 });
 
 document.addEventListener('DOMContentLoaded', loadFilesList);
+
 function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;

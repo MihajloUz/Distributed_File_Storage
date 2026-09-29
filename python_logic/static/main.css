@@ -161,26 +161,117 @@ button:active, input[type="submit"]:active {
     object-fit: contain;
     flex-shrink: 0;
 }
+
 #overlay {
-    display: flex;
     position: fixed;
-    left: 0px;
-    top: 0px;
-    user-select: none;
-    background: rgba(0, 0, 0, 0);
-    padding: 5px;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.75) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    box-sizing: border-box;
+    transition: opacity 0.3s ease;
 }
+
+#overlay[style*="rgba(0, 0, 0, 0)"],
+#overlay[style*="width: 0px"],
+#overlay[style*="width: 0%"] {
+    display: none !important;
+}
+
 #overlay > .content {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 90vw;
+    max-height: 75vh;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
     overflow: auto;
-    max-width: 100%;
-    max-height: 100%;
+    position: relative;
 }
+
+#overlay > .content img {
+    max-width: 100%;
+    max-height: 65vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+#overlay > .content pre {
+    color: var(--text-main);
+    font-family: 'Fira Code', monospace, sans-serif;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 60vh;
+    width: 100%;
+}
+
+#download_div {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+#download_div a {
+    background: var(--accent-primary);
+    color: #ffffff;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 4px 14px var(--accent-glow);
+    transition: var(--transition);
+}
+
+#download_div a:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+}
+
 #overlay > #close {
-    display: none;
-    position: absolute;
-    color: white;
-    right: 0px;
-    top: 0px;
+    position: absolute !important;
+    top: 1.5rem !important;
+    right: 1.5rem !important;
+    width: 44px !important;
+    height: 44px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid var(--panel-border) !important;
+    border-radius: 50% !important;
+    color: var(--text-main) !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+#overlay > #close:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: var(--danger) !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
 }
 
 .date, #filesList .date {
