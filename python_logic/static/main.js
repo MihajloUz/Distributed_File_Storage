@@ -7,6 +7,22 @@ const overlay = document.getElementById("overlay");
 const content = document.querySelector(".content");
 const close_button = document.getElementById("close");
 
+
+function overview_closing(){
+    content.innerHTML = "";
+    
+    const download_div = document.getElementById("download_div");
+    if (download_div) {
+        download_div.innerHTML = "";
+    }
+
+    overlay.classList.remove("active");
+    overlay.style.display = "none";
+}
+
+//innit closing
+overview_closing();
+
 filesList.addEventListener("submit", async (event) => {
     if (!event.target.matches(".get_overlay_info")) {
         return;
@@ -57,6 +73,19 @@ filesList.addEventListener("submit", async (event) => {
                 content.innerHTML = "";
                 content.appendChild(embed);
                 break;
+            case "video":
+                const video = document.createElement("video");
+
+                video.controls = true;
+
+                content.innerHTML = "";
+                content.appendChild(video);
+
+                const source = document.createElement("source");
+                source.src = URL.createObjectURL(blob);
+                source.type = "video/mp4";
+                video.appendChild(source);
+                break;
 
             default: 
                 console.log("something went wrong in switch statement");
@@ -79,18 +108,7 @@ filesList.addEventListener("submit", async (event) => {
     }
 });
 
-// Для закриття оверлею
-close_button.addEventListener("click", () => {
-    content.innerHTML = "";
-    
-    const download_div = document.getElementById("download_div");
-    if (download_div) {
-        download_div.innerHTML = "";
-    }
-
-    overlay.classList.remove("active");
-    overlay.style.display = "none";
-});
+close_button.addEventListener("click", overview_closing); // closing the overview on button cllick
 
 async function loadFilesList() {
     try {
